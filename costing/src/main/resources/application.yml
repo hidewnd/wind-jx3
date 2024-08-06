@@ -1,0 +1,47 @@
+server:
+  port: 9001
+spring:
+  profiles:
+    include: dev
+  application:
+    name: costing
+  data:
+    redis:
+      host: 192.168.3.4
+      port: 6379
+      database: 1
+      lettuce:
+        pool:
+          min-idle: 0
+          max-idle: 8
+          max-wait: -1ms
+          max-active: 6
+
+knife4j:
+  enable: true
+  setting:
+    language: zh_cn
+  #开启生产环境屏蔽
+  production: false
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    tags-sorter: alpha
+    operations-sorter: alpha
+  api-docs:
+    path: /v3/api-docs
+  group-configs:
+    - group: 'default'
+      paths-to-match: '/**'
+      packages-to-scan: com.hidewnd.costing.controller
+box:
+  default:
+    server: '剑胆琴心'
+  cache:
+    time: 60
+    result:
+      time: 120
+jx3api:
+  url: 'https://api.jx3api.com/data'
+  token: ''
+  ticket: ''
