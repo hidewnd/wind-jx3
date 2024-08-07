@@ -12,15 +12,15 @@ public class BoxUtils {
         if (StrUtil.isEmpty(price)) {
             return "";
         }
-        return computePrice(Integer.parseInt(price));
+        return computePrice(Long.parseLong(price));
     }
 
-    public static String computePrice(Integer value) {
+    public static String computePrice(Long value) {
         if (value == null) {
             return "";
         }
         StringBuilder builder = new StringBuilder();
-        List<Integer> params = new ArrayList<>();
+        List<Long> params = new ArrayList<>();
         value = computePrice(value, 100000000, builder, "{}砖", params);
         value = computePrice(value, 10000, builder, "{}金", params);
         value = computePrice(value, 100, builder, "{}银", params);
@@ -31,9 +31,9 @@ public class BoxUtils {
         return StrUtil.format(builder.toString(), params.toArray());
     }
 
-    public static int computePrice(int value, int threshold, StringBuilder builder, String format, List<Integer> params) {
+    public static long computePrice(long value, long threshold, StringBuilder builder, String format, List<Long> params) {
         if (value > threshold) {
-            int result = value / threshold;
+            long result = value / threshold;
             if (value % threshold >= 0) {
                 value -= result * threshold;
             }

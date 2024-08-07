@@ -20,10 +20,10 @@ public interface Jx3BoxRemote {
      * @param number 数量
      * @return decimal  BigDecimal.ZERO if null
      */
-    int queryPrice(String itemId, int number);
+    long queryPrice(String itemId, int number);
 
 
-    int queryPrice(String serverName, String itemId, int number);
+    long queryPrice(String serverName, String itemId, int number);
 
 
     /**

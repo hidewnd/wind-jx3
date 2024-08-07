@@ -36,6 +36,9 @@ public class CostingServiceImpl implements CostingService {
     @Value("${box.cache.result.time:120}")
     private Integer resultCacheTime;
 
+    @Value("${box.default.server: '剑胆琴心'}")
+    private String defaultServer;
+
     @Autowired
     private Jx3BoxRemote jx3BoxRemote;
 
@@ -48,19 +51,22 @@ public class CostingServiceImpl implements CostingService {
         if (StrUtil.isEmpty(costItem.getFormulaName())) {
             throw new CommonException("未找到配方名称");
         }
-        costItem.setFormulaName(costItem.getFormulaName().replaceFirst("\\[", "").replaceFirst("]",""));
+        if (StrUtil.isEmpty(costItem.getServer())) {
+            costItem.setServer(defaultServer);
+        }
+        costItem.setFormulaName(costItem.getFormulaName().replaceFirst("\\[", "").replaceFirst("]", ""));
         if (costItem.getNumber() == null) {
             costItem.setNumber(1);
         }
         // 缓存结果直接返回
-        String costItemKey = CACHE_COST_ITEM + costItem.getFormulaName() + "_" + costItem.getNumber();
+        String costItemKey = STR."\{CACHE_COST_ITEM}\{costItem.getServer()}_\{costItem.getFormulaName()}_\{costItem.getNumber()}";
         String costItemJson = cacheService.getString(costItemKey);
         if (StrUtil.isNotEmpty(costItemJson)) {
             costItem = JSONObject.parseObject(costItemJson, CostItem.class);
             return R.successByObj(costItem);
         }
         // 查询是否存在分析记录缓存
-        String costingRequiredKey = CACHE_FORMULAS_REQUIRED + costItem.getFormulaName() + "_" + costItem.getNumber();
+        String costingRequiredKey = STR."\{CACHE_FORMULAS_REQUIRED}\{costItem.getServer()}_\{costItem.getFormulaName()}_\{costItem.getNumber()}";
         String cacheJson = cacheService.getString(costingRequiredKey);
         Map<String, Material> required = null;
         if (StrUtil.isNotEmpty(cacheJson)) {
@@ -78,7 +84,7 @@ public class CostingServiceImpl implements CostingService {
             // 商人材料价格
             Formulas formulas = jx3BoxRemote.queryFormulasAndNumber(costItem.getType(), costItem.getFormulaName(), costItem.getNumber(), required);
             // 交易行价格
-            int tradingPrice = jx3BoxRemote.queryPrice(costItem.getServer(), formulas.getMaterialId(), costItem.getNumber());
+            long tradingPrice = jx3BoxRemote.queryPrice(costItem.getServer(), formulas.getMaterialId(), costItem.getNumber());
             costItem.setValue(tradingPrice);
             costItem.setValueString(BoxUtils.computePrice(tradingPrice));
             costItem.setMaterialId(formulas.getMaterialId());
@@ -86,7 +92,7 @@ public class CostingServiceImpl implements CostingService {
             cacheService.set(costingRequiredKey, JSONObject.toJSONString(required), cacheTime, TimeUnit.SECONDS);
         }
         // 成本价格计算
-        int totalCostValue = 0;
+        long totalCostValue = 0;
         for (Map.Entry<String, Material> entry : required.entrySet()) {
             Material entryValue = entry.getValue();
             String value = cacheService.getString(Jx3BoxRemoteImpl.CACHE_NAME_SPACE + entryValue.getId());

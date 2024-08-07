@@ -19,7 +19,6 @@ import org.junit.jupiter.api.Test;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.*;
-import java.util.concurrent.atomic.AtomicInteger;
 
 class Jx3BoxTests {
     public static final String ITEM_SEARCH = "https://helper.jx3box.com/api/item/search?keyword={}&page=1&limit=20";
@@ -28,18 +27,42 @@ class Jx3BoxTests {
     public static final String ITEM_MERGED = "https://node.jx3box.com/resource/std/item_merged.{}";
     public static final String CRAFT_PRICE = "https://node.jx3box.com/craft/price?client=std";
 
+    public static final String CACHE_FORMULAS_REQUIRED = "costing:formulas:required:";
+
 
     @Test
     void testCompute() {
-        String price = "120000";
+        String price = "47009100";
         System.out.println(BoxUtils.computePrice(price));
+    }
+
+    @Test
+    void textStringTemplate() {
+        String cache = "aaaa";
+        String cache2 = null;
+        String cache3 = "cccc";
+        long start = System.currentTimeMillis();
+        String template = STR."CACHE_FORMULAS_REQUIRED\{cache}_\{cache2}_\{cache3}";
+        System.out.println(System.currentTimeMillis() - start);
+        System.out.println(template);
+    }
+
+    @Test
+    void textStringTemplate2() {
+        String cache = "aaaa";
+        String cache2 = null;
+        String cache3 = "cccc";
+        long start = System.currentTimeMillis();
+        String template = StrUtil.format("{}_{}_{}", CACHE_FORMULAS_REQUIRED, cache, cache2, cache3);
+        System.out.println(System.currentTimeMillis() - start);
+        System.out.println(template);
     }
 
     @Test
     void contextLoads() {
         JSONObject jsonObject = queryItem("精肉");
         if (jsonObject != null) {
-            int total = queryPrice(jsonObject.getString("id"), 10);
+            long total = queryPrice(jsonObject.getString("id"), 10);
             System.out.println(BoxUtils.computePrice(total));
         }
     }
@@ -165,13 +188,13 @@ class Jx3BoxTests {
         }
         System.out.println("需求名称：" + needName);
         System.out.println("需求数量：" + needNumber);
-        System.out.println("交易行价格：" +BoxUtils.computePrice(formulas.getTradingPrice()));
-        System.out.println("制作次数：" +formulas.getTimes());
-        System.out.println("制作成本：" +BoxUtils.computePrice(formulas.getPrice()));
-        System.out.println("制作精力：" +formulas.getEnergies());
+        System.out.println("交易行价格：" + BoxUtils.computePrice(formulas.getTradingPrice()));
+        System.out.println("制作次数：" + formulas.getTimes());
+        System.out.println("制作成本：" + BoxUtils.computePrice(formulas.getPrice()));
+        System.out.println("制作精力：" + formulas.getEnergies());
         BigDecimal fees = new BigDecimal(formulas.getTradingPrice()).divide(new BigDecimal(needNumber), 6, RoundingMode.HALF_UP).multiply(new BigDecimal("0.05")).multiply(new BigDecimal(needNumber));
-        System.out.println("交易手续费：" +BoxUtils.computePrice(fees.intValue()));
-        System.out.println("预计收益：" +BoxUtils.computePrice(formulas.getTradingPrice() - formulas.getPrice() - fees.intValue()));
+        System.out.println("交易手续费：" + BoxUtils.computePrice(fees.longValue()));
+        System.out.println("预计收益：" + BoxUtils.computePrice(formulas.getTradingPrice() - formulas.getPrice() - fees.intValue()));
     }
 
 
@@ -236,87 +259,9 @@ class Jx3BoxTests {
         return formulas;
     }
 
-    @Test
-    void test2(){
-        int needNumber = 1;
-        String needName = "断浪·头·铸（外攻）";
-        Map<String, Material> required = new HashMap<>();
-        Formulas formulas = queryFormulas2(FormulasEnum.FOUNDING, needName, needNumber, required);
-        Map<String, Integer> craftPrice = getCraftPrice();
-        AtomicInteger total = new AtomicInteger();
-        required.forEach((key, value) -> {
-            Integer price = craftPrice.get(key);
-            if (price != null) {
-                total.addAndGet(price * value.getNumber());
-            } else {
-                total.addAndGet(queryPrice(value.getId(), value.getNumber()));
-            }
-        });
-        System.out.println("精力: " + formulas.getEnergies());
-        int tradingPrice = queryPrice(formulas.getMaterialId(), needNumber);
-        System.out.println("交易行: " +BoxUtils.computePrice(tradingPrice));
-        System.out.println("成本: " +BoxUtils.computePrice(total.get()));
-    }
-
-    public Formulas queryFormulas2(FormulasEnum type, String name, Integer number, Map<String, Material> required) {
-        Formulas formulas = null;
-        String body = getRequest(ITEM_FORMULAS, type.getType(), name);
-        if (StrUtil.isNotEmpty(body)) {
-            List<JSONObject> list = JSONArray.parseArray(body, JSONObject.class);
-            if (CollUtil.isEmpty(list)) {
-                return formulas;
-            }
-            JSONObject jsonObject = list.stream().filter(item -> StrUtil.equals(item.getString("Name"), name)).findFirst().orElse(null);
-            if (jsonObject == null) {
-                return formulas;
-            }
-            formulas = new Formulas();
-            formulas.setFormulaName(jsonObject.getString("Name"));
-            formulas.setEnergies(jsonObject.getIntValue("CostVigor", 0));
-            formulas.setCreateMin(jsonObject.getIntValue("CreateItemMin1", 0));
-            formulas.setCreateMax(jsonObject.getIntValue("CreateItemMax1", 0));
-            JSONObject item = queryItem(formulas.getFormulaName());
-            formulas.setMaterialId(item.getString("id"));
-            formulas.setTradingPrice(queryPrice(formulas.getMaterialId(), number));
-            // 总计需要制作次数
-            int totalTimes = randomNumber(number, formulas.getCreateMin(), formulas.getCreateMax());
-            formulas.setTimes(totalTimes);
-            int energies = formulas.getEnergies() * totalTimes;
-            List<Material> itemList = new ArrayList<>();
-            for (int i = 1; i < 9; i++) {
-                Object requireItemType = jsonObject.get("RequireItemType" + i);
-                Object requireItemIndex = jsonObject.get("RequireItemIndex" + i);
-                if (requireItemType == null || requireItemIndex == null) {
-                    break;
-                }
-                String id = StrUtil.format("{}_{}", requireItemType, requireItemIndex);
-                Material material = queryMaterialById(id);
-                material.setNumber(jsonObject.getIntValue("RequireItemCount" + i, 0));
-                Formulas itemFormulas = queryFormulas2(type, material.getName(), material.getNumber() * totalTimes, required);
-                // 中间产物查询配方
-                if (itemFormulas != null) {
-                    material.setFormulas(itemFormulas);
-                    energies += itemFormulas.getEnergies() * totalTimes;
-                }
-                // 基础材料查询交易行
-                if (material.getFormulas() == null) {
-                    setMaterialNumber(required, material, material.getNumber() * totalTimes);
-                }
-                itemList.add(material);
-            }
-            formulas.setItems(itemList);
-            formulas.setEnergies(energies);
-        }
-        return formulas;
-    }
-
-    @Test
-    void  testGetMaterialNumber(){
-
-    }
 
     private int getMaterialNumber(JSONObject jsonObject, int start, int end) {
-        int n = (end +start) / 2;
+        int n = (end + start) / 2;
         if (jsonObject.get("RequireItemType" + n) == null) {
             return getMaterialNumber(jsonObject, start, n - 1);
         }
@@ -328,13 +273,13 @@ class Jx3BoxTests {
 
     private static void setMaterialNumber(Map<String, Material> required, Material material, int number) {
         Material mt1 = required.getOrDefault(material.getName(), null);
-        if (mt1 == null){
+        if (mt1 == null) {
             mt1 = new Material();
             mt1.setName(material.getName());
             mt1.setId(material.getId());
             mt1.setSourceId(material.getSourceId());
             mt1.setNumber(number);
-        }else {
+        } else {
             mt1.setNumber(mt1.getNumber() + number);
         }
         required.put(material.getName(), mt1);

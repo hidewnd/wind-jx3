@@ -29,7 +29,7 @@ public class CostItem implements Serializable {
      * 合计成本
      */
     @Schema(description = "合计成本")
-    private int cost;
+    private Long cost;
 
     @Schema(description = "合计成本格式化")
     private String costString;
@@ -38,7 +38,7 @@ public class CostItem implements Serializable {
      * 合计市场价格
      */
     @Schema(description = "合计交易行价格")
-    private int value;
+    private Long value;
 
     @Schema(description = "合计交易行价格格式化")
     private String valueString;

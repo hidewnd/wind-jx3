@@ -123,15 +123,15 @@ public class Jx3BoxRemoteImpl implements Jx3BoxRemote {
 
 
     @Override
-    public int queryPrice(String itemId, int number) {
+    public long queryPrice(String itemId, int number) {
         return queryPrice(defaultServer, itemId, number);
     }
 
     @Override
-    public int queryPrice(String serverName, String itemId, int number) {
+    public long queryPrice(String serverName, String itemId, int number) {
         String body = getRequest(ITEM_PRICE, itemId, URLEncodeUtil.encode(serverName));
-        int remaining = number;
-        int price = 0;
+        long remaining = number;
+        long price = 0;
         if (StrUtil.isNotEmpty(body)) {
             JSONObject jsonObject = JSONObject.parseObject(body);
             if (jsonObject.getInteger("code") == 0 && jsonObject.get("data") != null) {
@@ -141,12 +141,12 @@ public class Jx3BoxRemoteImpl implements Jx3BoxRemote {
                 }
                 List<JSONObject> array = data.getObject("prices", JSONArray.class).toJavaList(JSONObject.class);
                 // 从小大排序
-                array.sort(Comparator.comparingInt(o -> o.getIntValue("unit_price", 0)));
+                array.sort(Comparator.comparingLong(o -> o.getLongValue("unit_price", 0)));
                 for (JSONObject object : array) {
                     if (remaining <= 0) break;
                     int count = object.getIntValue("n_count", 0);
-                    int sub = count - remaining > 0 ? 0 : remaining - count;
-                    price += (remaining - sub) * object.getIntValue("unit_price", 0);
+                    long sub = count - remaining > 0 ? 0 : remaining - count;
+                    price += (remaining - sub) * object.getLongValue("unit_price", 0);
                     remaining -= sub == 0 ? remaining : sub;
                 }
             }
@@ -160,7 +160,9 @@ public class Jx3BoxRemoteImpl implements Jx3BoxRemote {
         Formulas formulas = null;
         List<JSONObject> list = queryFormulas(type, name);
         if (CollUtil.isNotEmpty(list)) {
-            JSONObject jsonObject = list.stream().filter(item -> StrUtil.equals(item.getString("Name"), name)).findFirst().orElse(null);
+            JSONObject jsonObject = list.stream().filter(item -> StrUtil.equals(item.getString("Name"), name))
+                    .filter(item -> item.get("nLevel") != null)
+                    .findFirst().orElse(null);
             if (jsonObject == null) {
                 return formulas;
             }

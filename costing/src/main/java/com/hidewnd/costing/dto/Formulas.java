@@ -40,11 +40,11 @@ public class Formulas implements Serializable {
     /**
      * 成本价格
      */
-    private int price;
+    private long price;
 
     /**
      * 交易价格
      */
-    private int tradingPrice;
+    private long tradingPrice;
 
 }
