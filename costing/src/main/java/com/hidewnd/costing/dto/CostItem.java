@@ -11,37 +11,38 @@ import java.util.Map;
 @Schema(description = "技艺成本查询实体")
 public class CostItem implements Serializable {
 
-    @Schema(description = "服务器", requiredMode = Schema.RequiredMode.REQUIRED)
-    private String server;
+    @Schema(description = "材料ID")
+    private String materialId;
 
-    @Schema(description = "技艺制品名称", requiredMode = Schema.RequiredMode.REQUIRED)
-    private String formulaName;
+    @Schema(description = "服务器", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+    private String server;
 
     @Schema(description = "技艺类型", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
     private FormulasEnum type;
 
-    private String materialId;
+    @Schema(description = "技艺制品名称", requiredMode = Schema.RequiredMode.REQUIRED)
+    private String formulaName;
 
     @Schema(description = "需求数量", requiredMode = Schema.RequiredMode.REQUIRED)
     private Integer number;
 
-    /**
-     * 合计成本
-     */
     @Schema(description = "合计成本")
     private Long cost;
 
     @Schema(description = "合计成本格式化")
     private String costString;
 
-    /**
-     * 合计市场价格
-     */
     @Schema(description = "合计交易行价格")
     private Long value;
 
     @Schema(description = "合计交易行价格格式化")
     private String valueString;
+
+    @Schema(description = "实际利润")
+    private Long actualProfit;
+
+    @Schema(description = "实际利润格式化")
+    private String actualProfitString;
 
     @Schema(description = "合计所需材料数量")
     private Map<String, Material> requiredMap;

@@ -1,7 +1,6 @@
 package com.hidewnd.costing.utils;
 
 import cn.hutool.core.util.StrUtil;
-import com.hidewnd.costing.costant.FormulasEnum;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -19,8 +18,14 @@ public class BoxUtils {
         if (value == null) {
             return "";
         }
-        StringBuilder builder = new StringBuilder();
-        List<Long> params = new ArrayList<>();
+        String prefix = "";
+        if (value < 0) {
+            prefix = "负";
+            value = Math.abs(value);
+        }
+        StringBuilder builder = new StringBuilder("{}");
+        List<Object> params = new ArrayList<>();
+        params.add(prefix);
         value = computePrice(value, 100000000, builder, "{}砖", params);
         value = computePrice(value, 10000, builder, "{}金", params);
         value = computePrice(value, 100, builder, "{}银", params);
@@ -31,7 +36,8 @@ public class BoxUtils {
         return StrUtil.format(builder.toString(), params.toArray());
     }
 
-    public static long computePrice(long value, long threshold, StringBuilder builder, String format, List<Long> params) {
+    public static long computePrice(long value, long threshold, StringBuilder builder, String format,
+                                    List<Object> params) {
         if (value > threshold) {
             long result = value / threshold;
             if (value % threshold >= 0) {
@@ -44,17 +50,4 @@ public class BoxUtils {
     }
 
 
-    public static FormulasEnum getFormulasEnum(String cacheType) {
-        if (cacheType == null) {
-            return null;
-        }
-        return switch (cacheType.trim().toLowerCase()) {
-            case "cooking" -> FormulasEnum.COOKING;
-            case "tailoring" -> FormulasEnum.TAILORING;
-            case "medicine" -> FormulasEnum.MEDICINE;
-            case "founding" -> FormulasEnum.FOUNDING;
-            case "furniture" -> FormulasEnum.FURNITURE;
-            default -> null;
-        };
-    }
 }

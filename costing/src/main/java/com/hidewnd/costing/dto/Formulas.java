@@ -10,8 +10,14 @@ import java.util.List;
 @NoArgsConstructor
 public class Formulas implements Serializable {
 
+    /**
+     * 配方ID
+     */
     private String id;
 
+    /**
+     * 制品ID
+     */
     private String materialId;
 
     /**
@@ -24,27 +30,25 @@ public class Formulas implements Serializable {
      */
     private Integer energies;
 
-    private String type;
-
+    /**
+     * 出品数量最小值
+     */
     private Integer createMin;
+
+    /**
+     * 出品数量最大值
+     */
     private Integer createMax;
-
-
 
     /**
      * 配方材料
      */
     private List<Material> items;
 
+    /**
+     * 总计制作次数
+     */
     private int times;
-    /**
-     * 成本价格
-     */
-    private long price;
 
-    /**
-     * 交易价格
-     */
-    private long tradingPrice;
 
 }

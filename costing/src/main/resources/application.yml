@@ -42,6 +42,6 @@ box:
     result:
       time: 120
 jx3api:
-  url: 'https://api.jx3api.com/data'
+  url: 'https://www.jx3api.com'
   token: ''
   ticket: ''

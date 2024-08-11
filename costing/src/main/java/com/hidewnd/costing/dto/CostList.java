@@ -1,24 +1,40 @@
 package com.hidewnd.costing.dto;
 
-import com.hidewnd.costing.costant.FormulasEnum;
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
 import java.io.Serializable;
+import java.util.List;
+import java.util.Map;
 
 @Data
 public class CostList implements Serializable {
 
-    /**
-     * 服务名
-     */
+    @Schema(description = "服务器")
     private String server;
 
-    private FormulasEnum type;
+    @Schema(description = "清单明细列表")
+    private List<CostItem> items;
 
-    private String name;
+    @Schema(description = "合计成本")
+    private Long cost;
 
-    private Integer number;
+    @Schema(description = "合计成本格式化")
+    private String costString;
 
-    private Double price;
+    @Schema(description = "合计交易行价格")
+    private Long value;
+
+    @Schema(description = "合计交易行价格格式化")
+    private String valueString;
+
+    @Schema(description = "实际利润")
+    private Long actualProfit;
+
+    @Schema(description = "实际利润格式化")
+    private String actualProfitString;
+
+    @Schema(description = "合计所需材料数量")
+    private Map<String, Material> requiredMap;
 
 }

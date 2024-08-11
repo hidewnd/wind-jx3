@@ -29,4 +29,10 @@ public interface CacheService {
 
     // 如果不存在，则设置，附带过期时间
     Boolean tryLock(String lockKey, String requestId, long seconds);
+
+    // 如果不存在，则设置，附带过期时间
+    Boolean tryLock(String lockKey, String requestId, long timeout, TimeUnit unit);
+
+    // 不存在返回true，存在则删除
+    Boolean releaseLock(String lockKey, String requestId);
 }

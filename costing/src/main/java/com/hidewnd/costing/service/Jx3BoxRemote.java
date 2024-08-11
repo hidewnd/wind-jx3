@@ -1,29 +1,35 @@
 package com.hidewnd.costing.service;
 
 
+import com.alibaba.fastjson2.JSONObject;
 import com.hidewnd.costing.costant.FormulasEnum;
 import com.hidewnd.costing.dto.Formulas;
 import com.hidewnd.costing.dto.Material;
-import org.springframework.cache.annotation.Cacheable;
 
 import java.util.Map;
 
 public interface Jx3BoxRemote {
 
 
+    /**
+     * 查询材料详情
+     *
+     * @param id 材料ID
+     * @return material | null return empty Object
+     */
     Material queryMaterialById(String id);
 
+    Material queryMaterialByName(String name);
+
     /**
-     * 查询价格
+     * 查询交易行价格
      *
-     * @param itemId id
+     * @param server 服务器
+     * @param itemId 材料ID
      * @param number 数量
      * @return decimal  BigDecimal.ZERO if null
      */
-    long queryPrice(String itemId, int number);
-
-
-    long queryPrice(String serverName, String itemId, int number);
+    long queryPrice(String server, String itemId, int number);
 
 
     /**
@@ -37,5 +43,5 @@ public interface Jx3BoxRemote {
      */
     Formulas queryFormulasAndNumber(FormulasEnum type, String name, Integer number, Map<String, Material> required);
 
-    Map<String, Integer> getCraftPrice();
+    JSONObject getFormulasJSON(FormulasEnum type, String name);
 }

@@ -23,4 +23,15 @@ public enum FormulasEnum {
     FormulasEnum(String type) {
         this.type = type;
     }
+
+    public static FormulasEnum getFormulasEnum(String cacheType) {
+        return switch (cacheType.trim().toLowerCase()) {
+            case "cooking" -> FormulasEnum.COOKING;
+            case "tailoring" -> FormulasEnum.TAILORING;
+            case "medicine" -> FormulasEnum.MEDICINE;
+            case "founding" -> FormulasEnum.FOUNDING;
+            case "furniture" -> FormulasEnum.FURNITURE;
+            default -> null;
+        };
+    }
 }

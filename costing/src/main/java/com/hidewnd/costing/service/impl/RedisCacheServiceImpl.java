@@ -11,15 +11,19 @@ import java.util.concurrent.TimeUnit;
 
 @Component("redisCacheService")
 public class RedisCacheServiceImpl implements CacheService {
-    @Autowired
     private RedisTemplate<String, Object> redisTemplate;
+
+    @Autowired
+    public void setRedisTemplate(RedisTemplate<String, Object> redisTemplate) {
+        this.redisTemplate = redisTemplate;
+    }
 
     private static final Long RELEASE_SUCCESS = 1L;
     private static final String RELEASE_SCRIPT = "if redis.call('get', KEYS[1]) == ARGV[1] then " +
             "return redis.call('del', KEYS[1]) " +
             "else " +
             "return 0 " +
-            "end";;
+            "end";
 
 
     // 设置键值对
@@ -78,11 +82,13 @@ public class RedisCacheServiceImpl implements CacheService {
     }
 
     // 如果不存在，则设置，附带过期时间
+    @Override
     public Boolean tryLock(String lockKey, String requestId, long timeout, TimeUnit unit) {
         return redisTemplate.opsForValue().setIfAbsent(lockKey, requestId, timeout, unit);
     }
 
     // 不存在返回true，存在则删除
+    @Override
     public Boolean releaseLock(String lockKey, String requestId){
         DefaultRedisScript<Long> redisScript = new DefaultRedisScript<>();
         redisScript.setScriptText(RELEASE_SCRIPT);
