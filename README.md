@@ -238,7 +238,7 @@ docker run -p 6379:6379 -v /home/redis/data:/data \
 ```
 
 
-- 代理请求JX3API：POST `/costing/list`
+- 代理请求JX3API：POST `/proxy/jx3api`
 
 > Request
 
