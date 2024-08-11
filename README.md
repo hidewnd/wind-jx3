@@ -236,3 +236,33 @@ docker run -p 6379:6379 -v /home/redis/data:/data \
   }
 }
 ```
+
+
+- 代理请求JX3API：POST `/costing/list`
+
+> Request
+
+```json
+{
+  "url": "/data/saohua/random",
+  "params": {}
+}
+```
+> Response
+
+```json
+{
+  "success": true,
+  "code": 2000,
+  "msg": "代理请求成功",
+  "obj": {
+    "code": 200,
+    "msg": "success",
+    "data": {
+      "id": 2655,
+      "text": "情缘请主动加我好友"
+    },
+    "time": 1723388083
+  }
+}
+```
