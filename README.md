@@ -17,6 +17,24 @@ docker run -p 6379:6379 -v /home/redis/data:/data \
 
 - 打包：`mvn clean package -DskipTests`
 - 启动：`java -jar costing/target/costing.jar`
+- Docker部署
+
+Dockerfile
+```dockerfile
+FROM openjdk:21
+WORKDIR /app
+COPY costing.jar /app/costing.jar
+ENTRYPOINT ["java","--enable-preview","-jar","/app/costing.jar"]
+```
+运行
+```shell
+# 镜像编译
+docker build -f dockerfile -t hidewnd/costing:0.0.1 .
+# 容器运行
+docker run -d --net=bridge -p 9001:9001 \
+-v /home/costing.jar:/app/costing.jar \
+hidewnd/costing:0.0.1
+```
 
 
 ## 目录结构描述
