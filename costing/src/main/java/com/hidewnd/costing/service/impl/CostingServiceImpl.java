@@ -201,7 +201,7 @@ public class CostingServiceImpl implements CostingService {
     private CostItem parseFormula(CostItem costItem, Map<String, Material> required) {
         costItem.setFormulaName(costItem.getFormulaName().replaceFirst("\\[", "").replaceFirst("]", ""));
         // 配方明细KEY
-        String costingRequiredKey = StrUtil.format("{}{}_{}_{}_{}", CACHE_FORMULAS_REQUIRED, costItem.getServer(), costItem.getFormulaName(), costItem.getNumber());
+        String costingRequiredKey = StrUtil.format("{}{}_{}_{}", CACHE_FORMULAS_REQUIRED, costItem.getServer(), costItem.getFormulaName(), costItem.getNumber());
         // 查询配方分析记录
         String cacheJson = cacheService.getString(costingRequiredKey);
         Map<String, Material> map;

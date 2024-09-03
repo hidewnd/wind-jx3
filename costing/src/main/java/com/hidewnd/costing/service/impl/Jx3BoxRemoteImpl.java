@@ -193,7 +193,7 @@ public class Jx3BoxRemoteImpl implements Jx3BoxRemote {
             }
             String id = StrUtil.format("{}_{}", requireItemType, requireItemIndex);
             Material material = queryMaterialById(id);
-            material.setNumber(jsonObject.getIntValue(StrUtil.format("RequireItemCount{}", 0)));
+            material.setNumber(jsonObject.getIntValue(StrUtil.format("RequireItemCount{}", i), 0));
             Formulas itemFormulas = queryFormulasAndNumber(type, material.getName(), material.getNumber() * totalTimes, required);
             // 中间产物查询配方
             if (itemFormulas != null) {
