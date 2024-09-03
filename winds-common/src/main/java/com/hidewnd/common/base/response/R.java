@@ -2,6 +2,7 @@ package com.hidewnd.common.base.response;
 
 import lombok.Data;
 
+import java.io.Serial;
 import java.io.Serializable;
 
 /**
@@ -14,6 +15,7 @@ import java.io.Serializable;
 @Data
 public class R<T> implements Serializable {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	public static final String DEFAULT_SUCCESS_MESSAGE = "请求成功";
@@ -21,6 +23,9 @@ public class R<T> implements Serializable {
 
 	public static final int CODE_SUCCESS = 2000;
 	public static final int CODE_ERROR = 5000;
+	public static final int CODE_NPE_ERROR = 5001;
+	public static final int CODE_RUNTIME_ERROR = 5002;
+	public static final int CODE_PARAM_ERROR = 10001;
 
 
 	/**

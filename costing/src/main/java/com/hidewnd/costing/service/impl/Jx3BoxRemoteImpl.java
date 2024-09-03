@@ -14,6 +14,7 @@ import com.hidewnd.costing.service.CacheService;
 import com.hidewnd.costing.service.Jx3BoxRemote;
 import com.hidewnd.costing.utils.RequestUtil;
 import jakarta.annotation.PostConstruct;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
@@ -22,6 +23,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.*;
 
+@Slf4j
 @Service
 public class Jx3BoxRemoteImpl implements Jx3BoxRemote {
 
@@ -168,22 +170,30 @@ public class Jx3BoxRemoteImpl implements Jx3BoxRemote {
             type = FormulasEnum.getFormulasEnum(jsonObject.getString("__TabType"));
             cacheService.set(CACHE_MANUFACTURES_TYPE + name, jsonObject.getString("__TabType"));
         }
-        JSONObject item = queryItem(formulas.getFormulaName());
-        formulas.setMaterialId(item.getString("id"));
+        // 配方产物映射材料ID
+        String createItemType1 = jsonObject.getString("CreateItemType1");
+        String createItemIndex1 = jsonObject.getString("CreateItemIndex1");
+        if (StrUtil.isNotEmpty(createItemType1) && StrUtil.isNotEmpty(createItemIndex1)) {
+            formulas.setMaterialId(StrUtil.format("{}_{}", createItemType1, createItemIndex1));
+        }
+        if (formulas.getMaterialId() == null || formulas.getMaterialId().isEmpty()) {
+            JSONObject item = queryItem(formulas.getFormulaName());
+            formulas.setMaterialId(item.getString("id"));
+        }
         // 总计需要制作次数
         int totalTimes = randomNumber(number, formulas.getCreateMin(), formulas.getCreateMax());
         formulas.setTimes(totalTimes);
         int energies = formulas.getEnergies() * totalTimes;
         List<Material> itemList = new ArrayList<>();
         for (int i = 1; i < 6; i++) {
-            Object requireItemType = jsonObject.get(STR."RequireItemType\{i}");
-            Object requireItemIndex = jsonObject.get(STR."RequireItemIndex\{i}");
+            Object requireItemType = jsonObject.get(StrUtil.format("RequireItemType{}", i));
+            Object requireItemIndex = jsonObject.get(StrUtil.format("RequireItemIndex{}", i));
             if (requireItemType == null || requireItemIndex == null) {
                 break;
             }
             String id = StrUtil.format("{}_{}", requireItemType, requireItemIndex);
             Material material = queryMaterialById(id);
-            material.setNumber(jsonObject.getIntValue(STR."RequireItemCount\{i}", 0));
+            material.setNumber(jsonObject.getIntValue(StrUtil.format("RequireItemCount{}", 0)));
             Formulas itemFormulas = queryFormulasAndNumber(type, material.getName(), material.getNumber() * totalTimes, required);
             // 中间产物查询配方
             if (itemFormulas != null) {

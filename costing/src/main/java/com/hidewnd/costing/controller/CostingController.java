@@ -1,5 +1,6 @@
 package com.hidewnd.costing.controller;
 
+import cn.hutool.core.util.StrUtil;
 import com.hidewnd.common.base.response.R;
 import com.hidewnd.costing.dto.CostItem;
 import com.hidewnd.costing.dto.CostList;
@@ -46,6 +47,6 @@ public class CostingController {
 
     @PostConstruct
     public void afterServerStart() {
-      log.info(STR."接口文档地址：http://localhost:\{port}/doc.html");
+        log.info(StrUtil.format("接口文档地址：http://localhost:{}/doc.html", port));
     }
 }

@@ -26,7 +26,10 @@ import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 @Service("costingService")
@@ -78,7 +81,7 @@ public class CostingServiceImpl implements CostingService {
         map.put("formulaName", costItem.getFormulaName());
         map.put("number", costItem.getNumber() == null ? 1 : costItem.getNumber());
         // 缓存结果直接返回
-        String resultKey = STR."\{CACHE_COST_ITEM}\{costItem.getServer()}_\{DigestUtil.sha1Hex(JSONArray.toJSONString(map))}";
+        String resultKey = StrUtil.format("{}{}_{}", CACHE_COST_ITEM, costItem.getServer(), DigestUtil.sha1Hex(JSONArray.toJSONString(map)));
         String costItemJson = cacheService.getString(resultKey);
         if (StrUtil.isNotEmpty(costItemJson)) {
             costItem = JSONObject.parseObject(costItemJson, CostItem.class);
@@ -119,7 +122,7 @@ public class CostingServiceImpl implements CostingService {
             map.put("number", item.getNumber() == null ? 1 : item.getNumber());
             return map;
         }).toList();
-        String resultKey = STR."\{CACHE_COST_LIST}\{costList.getServer()}_\{DigestUtil.sha1Hex(JSONArray.toJSONString(info))}";
+        String resultKey = StrUtil.format("{}{}_{}", CACHE_COST_LIST, costList.getServer(), DigestUtil.sha1Hex(JSONArray.toJSONString(info)));
         String resultJson = cacheService.getString(resultKey);
         if (StrUtil.isNotEmpty(resultJson)) {
             costList = JSONObject.parseObject(resultJson, CostList.class);
@@ -198,7 +201,7 @@ public class CostingServiceImpl implements CostingService {
     private CostItem parseFormula(CostItem costItem, Map<String, Material> required) {
         costItem.setFormulaName(costItem.getFormulaName().replaceFirst("\\[", "").replaceFirst("]", ""));
         // 配方明细KEY
-        String costingRequiredKey = STR."\{CACHE_FORMULAS_REQUIRED}\{costItem.getServer()}_\{costItem.getFormulaName()}_\{costItem.getNumber()}";
+        String costingRequiredKey = StrUtil.format("{}{}_{}_{}_{}", CACHE_FORMULAS_REQUIRED, costItem.getServer(), costItem.getFormulaName(), costItem.getNumber());
         // 查询配方分析记录
         String cacheJson = cacheService.getString(costingRequiredKey);
         Map<String, Material> map;
@@ -206,8 +209,13 @@ public class CostingServiceImpl implements CostingService {
             map = JSONObject.parseObject(cacheJson, new TypeReference<>() {
             });
             addRequireMaterial(map, required);
-            Material material = jx3BoxRemote.queryMaterialByName(costItem.getFormulaName());
-            costItem.setMaterialId(material.getId());
+            Formulas formulas = jx3BoxRemote.queryFormulasAndNumber(costItem.getType(), costItem.getFormulaName(), costItem.getNumber(), map);
+            if (formulas != null && StrUtil.isNotEmpty(formulas.getMaterialId())) {
+                costItem.setMaterialId(formulas.getMaterialId());
+            } else {
+                Material material = jx3BoxRemote.queryMaterialByName(costItem.getFormulaName());
+                costItem.setMaterialId(material.getId());
+            }
             return costItem;
         }
         // 查询配方及所需材料

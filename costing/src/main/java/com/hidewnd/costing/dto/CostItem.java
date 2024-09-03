@@ -1,7 +1,9 @@
 package com.hidewnd.costing.dto;
 
 import com.hidewnd.costing.costant.FormulasEnum;
+import com.hidewnd.costing.dto.validate.RequestModel;
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 
 import java.io.Serializable;
@@ -20,9 +22,11 @@ public class CostItem implements Serializable {
     @Schema(description = "技艺类型", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
     private FormulasEnum type;
 
+    @NotBlank(message = "配方名称不能为空", groups = RequestModel.class)
     @Schema(description = "技艺制品名称", requiredMode = Schema.RequiredMode.REQUIRED)
     private String formulaName;
 
+    @NotBlank(message = "需求数量不能为空", groups = RequestModel.class)
     @Schema(description = "需求数量", requiredMode = Schema.RequiredMode.REQUIRED)
     private Integer number;
 

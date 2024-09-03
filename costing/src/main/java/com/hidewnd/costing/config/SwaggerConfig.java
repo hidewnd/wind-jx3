@@ -3,6 +3,7 @@ package com.hidewnd.costing.config;
 import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.ExternalDocumentation;
 import io.swagger.v3.oas.models.OpenAPI;
+import io.swagger.v3.oas.models.info.Contact;
 import io.swagger.v3.oas.models.info.Info;
 import io.swagger.v3.oas.models.info.License;
 import io.swagger.v3.oas.models.media.StringSchema;
@@ -26,6 +27,7 @@ public class SwaggerConfig implements WebMvcConfigurer {
                         .addParameters("token", new HeaderParameter().description("请填写Token").schema(new StringSchema()))
                         .addParameters("adminID", new HeaderParameter().description("请填写用户ID").schema(new StringSchema())))
                 .info(new Info().title(applicationName)
+                        .contact(new Contact().name("hidewnd").url("https://github.com/hidewnd/wind-jx3"))
                         .description("剑网三·生活技艺成本计算")
                         .version("v2.0")
                         .license(new License().name("Apache 2.0").url("http://springdoc.org")))
