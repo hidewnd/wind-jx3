@@ -42,6 +42,7 @@ public interface Jx3BoxRemote {
      * @return 配方
      */
     Formulas queryFormulasAndNumber(FormulasEnum type, String name, Integer number, Map<String, Material> required);
+    Formulas queryFormulasAndNumber(FormulasEnum type, String name, Integer number, Boolean rangeCreate, Map<String, Material> required);
 
     JSONObject getFormulasJSON(FormulasEnum type, String name);
 }

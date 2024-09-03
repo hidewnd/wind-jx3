@@ -156,6 +156,11 @@ public class Jx3BoxRemoteImpl implements Jx3BoxRemote {
 
     @Override
     public Formulas queryFormulasAndNumber(FormulasEnum type, String name, Integer number, Map<String, Material> required) {
+        return queryFormulasAndNumber(type, name, number, false, required);
+    }
+
+    @Override
+    public Formulas queryFormulasAndNumber(FormulasEnum type, String name, Integer number, Boolean rangeCreate, Map<String, Material> required) {
         Formulas formulas = null;
         JSONObject jsonObject = getFormulasJSON(type, name);
         if (jsonObject == null) {
@@ -181,7 +186,7 @@ public class Jx3BoxRemoteImpl implements Jx3BoxRemote {
             formulas.setMaterialId(item.getString("id"));
         }
         // 总计需要制作次数
-        int totalTimes = randomNumber(number, formulas.getCreateMin(), formulas.getCreateMax());
+        int totalTimes = randomNumber(number, rangeCreate, formulas.getCreateMin(), formulas.getCreateMax());
         formulas.setTimes(totalTimes);
         int energies = formulas.getEnergies() * totalTimes;
         List<Material> itemList = new ArrayList<>();
@@ -280,11 +285,12 @@ public class Jx3BoxRemoteImpl implements Jx3BoxRemote {
     }
 
 
-    private int randomNumber(int number, Integer createMin, Integer createMax) {
+    private int randomNumber(int number, Boolean rangeCreate, Integer createMin, Integer createMax) {
+        rangeCreate = rangeCreate == null || rangeCreate;
         // 一次制作成本totalPrice 获取min-max个 概率计算次数
         int num = 0;
         while (number > 0) {
-            number -= RandomUtil.randomInt(createMin, createMax, true, true);
+            number -= rangeCreate ? RandomUtil.randomInt(createMin, createMax, true, true) : createMin;
             num++;
         }
         return num;

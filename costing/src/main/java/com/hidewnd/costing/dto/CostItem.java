@@ -51,4 +51,7 @@ public class CostItem implements Serializable {
     @Schema(description = "合计所需材料数量")
     private Map<String, Material> requiredMap;
 
+    @Schema(description = "是否随机产出数量")
+    private Boolean rangeCreate;
+
 }

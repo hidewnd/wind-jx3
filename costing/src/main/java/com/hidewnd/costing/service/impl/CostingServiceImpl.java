@@ -136,6 +136,7 @@ public class CostingServiceImpl implements CostingService {
             try {
                 for (CostItem costItem : list) {
                     costItem.setServer(costList.getServer());
+                    costItem.setRangeCreate(costList.getRangeCreate());
                     asyncTaskExecutor.submitCompletable(() -> {
                         CostItem item = parseFormula(costItem, required);
                         countDownLatch.countDown();
@@ -209,7 +210,7 @@ public class CostingServiceImpl implements CostingService {
             map = JSONObject.parseObject(cacheJson, new TypeReference<>() {
             });
             addRequireMaterial(map, required);
-            Formulas formulas = jx3BoxRemote.queryFormulasAndNumber(costItem.getType(), costItem.getFormulaName(), costItem.getNumber(), map);
+            Formulas formulas = jx3BoxRemote.queryFormulasAndNumber(costItem.getType(), costItem.getFormulaName(), costItem.getNumber(), costItem.getRangeCreate(), map);
             if (formulas != null && StrUtil.isNotEmpty(formulas.getMaterialId())) {
                 costItem.setMaterialId(formulas.getMaterialId());
             } else {
