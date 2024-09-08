@@ -29,6 +29,7 @@ public class Jx3BoxRemoteImpl implements Jx3BoxRemote {
 
     public static final String ITEM_SEARCH = "https://helper.jx3box.com/api/item/search?keyword={}&page=1&limit=20";
     public static final String ITEM_PRICE = "https://next2.jx3box.com/api/item-price/{}/detail?server={}";
+    public static final String ITEM_PRICE_V2 = "https://next2.jx3box.com/api/auction/";
     public static final String ITEM_FORMULAS = "https://node.jx3box.com/manufactures?client=std&type={}&name={}";
     public static final String ITEM_MERGED = "https://node.jx3box.com/resource/std/item_merged.{}";
     public static final String CRAFT_PRICE = "https://node.jx3box.com/craft/price?client=std";
@@ -128,6 +129,10 @@ public class Jx3BoxRemoteImpl implements Jx3BoxRemote {
 
     @Override
     public long queryPrice(String server, String itemId, int number) {
+        return queryPriceV2(server, itemId, number);
+    }
+
+    public long queryPriceV1(String server, String itemId, int number) {
         String body = RequestUtil.getRequest(ITEM_PRICE, itemId, URLEncodeUtil.encode(StrUtil.emptyToDefault(server, defaultServer)));
         long remaining = number;
         long price = 0;
@@ -148,6 +153,29 @@ public class Jx3BoxRemoteImpl implements Jx3BoxRemote {
                     price += (remaining - sub) * object.getLongValue("unit_price", 0);
                     remaining -= sub == 0 ? remaining : sub;
                 }
+            }
+        }
+        return price;
+    }
+
+    public long queryPriceV2(String server, String itemId, int number) {
+        JSONObject params = new JSONObject();
+        params.put("server", StrUtil.emptyToDefault(server, defaultServer));
+        params.put("aggregate_type", "hourly");
+        params.put("item_id", itemId);
+        String body = RequestUtil.postRequest(ITEM_PRICE_V2, JSONObject.toJSONString(params));
+        long remaining = number;
+        long price = 0;
+        if (StrUtil.isNotEmpty(body)) {
+            List<JSONObject> array = JSONArray.parseArray(body, JSONObject.class);
+            // 从小大排序
+            array.sort(Comparator.comparingLong(o -> o.getLongValue("price", 0)));
+            for (JSONObject object : array) {
+                if (remaining <= 0) break;
+                int count = object.getIntValue("sample", 0);
+                long sub = count - remaining > 0 ? 0 : remaining - count;
+                price += (remaining - sub) * object.getLongValue("price", 0);
+                remaining -= sub == 0 ? remaining : sub;
             }
         }
         return price;
