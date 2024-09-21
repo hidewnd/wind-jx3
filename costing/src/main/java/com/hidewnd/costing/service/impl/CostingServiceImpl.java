@@ -82,10 +82,10 @@ public class CostingServiceImpl implements CostingService {
         // 缓存结果直接返回
         String resultKey = StrUtil.format("{}{}_{}", CACHE_COST_ITEM,
                 request.getServer(), DigestUtil.sha1Hex(JSONArray.toJSONString(map)));
-//        result = cacheService.getObject(resultKey, CostItemResult.class);
-//        if (result != null) {
-//            return R.successByObj(result);
-//        }
+        result = cacheService.getObject(resultKey, CostItemResult.class);
+        if (result != null) {
+            return R.successByObj(result);
+        }
         Map<String, Material> required = new HashMap<>();
         result = parseFormula(request.getFormulaName(), request.getNumber(), request.getRangeCreate(), required);
         computerCostValue(request, result, required);
