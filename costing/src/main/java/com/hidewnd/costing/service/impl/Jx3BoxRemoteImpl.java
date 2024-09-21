@@ -3,7 +3,6 @@ package com.hidewnd.costing.service.impl;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.collection.CollectionUtil;
 import cn.hutool.core.net.URLEncodeUtil;
-import cn.hutool.core.util.RandomUtil;
 import cn.hutool.core.util.StrUtil;
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
@@ -181,15 +180,13 @@ public class Jx3BoxRemoteImpl implements Jx3BoxRemote {
         return price;
     }
 
-
     @Override
-    public Formulas queryFormulasAndNumber(FormulasEnum type, String name, Integer number, Map<String, Material> required) {
-        return queryFormulasAndNumber(type, name, number, false, required);
-    }
-
-    @Override
-    public Formulas queryFormulasAndNumber(FormulasEnum type, String name, Integer number, Boolean rangeCreate, Map<String, Material> required) {
-        Formulas formulas = null;
+    public Formulas queryFormulasAndNumber(FormulasEnum type, String name) {
+        String formulasKey = CACHE_MANUFACTURES_DATA + name;
+        Formulas formulas = cacheService.getObject(formulasKey, Formulas.class);
+        if (formulas != null) {
+            return formulas;
+        }
         JSONObject jsonObject = getFormulasJSON(type, name);
         if (jsonObject == null) {
             return formulas;
@@ -201,6 +198,7 @@ public class Jx3BoxRemoteImpl implements Jx3BoxRemote {
         formulas.setCreateMax(jsonObject.getIntValue("CreateItemMax1", 0));
         if (type == null) {
             type = FormulasEnum.getFormulasEnum(jsonObject.getString("__TabType"));
+            formulas.setType(type);
             cacheService.set(CACHE_MANUFACTURES_TYPE + name, jsonObject.getString("__TabType"));
         }
         // 配方产物映射材料ID
@@ -213,10 +211,7 @@ public class Jx3BoxRemoteImpl implements Jx3BoxRemote {
             JSONObject item = queryItem(formulas.getFormulaName());
             formulas.setMaterialId(item.getString("id"));
         }
-        // 总计需要制作次数
-        int totalTimes = randomNumber(number, rangeCreate, formulas.getCreateMin(), formulas.getCreateMax());
-        formulas.setTimes(totalTimes);
-        int energies = formulas.getEnergies() * totalTimes;
+        // 配方明细
         List<Material> itemList = new ArrayList<>();
         for (int i = 1; i < 6; i++) {
             Object requireItemType = jsonObject.get(StrUtil.format("RequireItemType{}", i));
@@ -224,23 +219,18 @@ public class Jx3BoxRemoteImpl implements Jx3BoxRemote {
             if (requireItemType == null || requireItemIndex == null) {
                 break;
             }
-            String id = StrUtil.format("{}_{}", requireItemType, requireItemIndex);
-            Material material = queryMaterialById(id);
+            String materialId = StrUtil.format("{}_{}", requireItemType, requireItemIndex);
+            Material material = queryMaterialById(materialId);
             material.setNumber(jsonObject.getIntValue(StrUtil.format("RequireItemCount{}", i), 0));
-            Formulas itemFormulas = queryFormulasAndNumber(type, material.getName(), material.getNumber() * totalTimes, required);
             // 中间产物查询配方
+            Formulas itemFormulas = queryFormulasAndNumber(type, material.getName());
             if (itemFormulas != null) {
                 material.setFormulas(itemFormulas);
-                energies += itemFormulas.getEnergies() * totalTimes;
-            }
-            // 基础材料查询交易行
-            if (material.getFormulas() == null) {
-                setMaterialNumber(required, material, material.getNumber() * totalTimes);
             }
             itemList.add(material);
         }
         formulas.setItems(itemList);
-        formulas.setEnergies(energies);
+        cacheService.set(formulasKey, JSONObject.toJSONString(formulas));
         return formulas;
     }
 
@@ -248,16 +238,11 @@ public class Jx3BoxRemoteImpl implements Jx3BoxRemote {
     @Override
     public JSONObject getFormulasJSON(FormulasEnum type, String name) {
         JSONObject jsonObject = null;
-        String cacheData = cacheService.getString(CACHE_MANUFACTURES_DATA + name);
-        if (StrUtil.isNotEmpty(cacheData)) {
-            return JSONObject.parseObject(cacheData);
-        }
         List<JSONObject> list = queryFormulas(type, name);
         if (CollUtil.isNotEmpty(list)) {
             jsonObject = list.stream().filter(item -> StrUtil.equals(item.getString("Name"), name))
                     .filter(item -> item.get("nLevel") != null)
                     .findFirst().orElse(null);
-            cacheService.set(CACHE_MANUFACTURES_DATA + name, JSONObject.toJSONString(jsonObject));
         }
         return jsonObject;
     }
@@ -295,33 +280,6 @@ public class Jx3BoxRemoteImpl implements Jx3BoxRemote {
             }
         }
         return json;
-    }
-
-
-    private static void setMaterialNumber(Map<String, Material> required, Material material, int number) {
-        Material mt1 = required.getOrDefault(material.getName(), null);
-        if (mt1 == null) {
-            mt1 = new Material();
-            mt1.setName(material.getName());
-            mt1.setId(material.getId());
-            mt1.setSourceId(material.getSourceId());
-            mt1.setNumber(number);
-        } else {
-            mt1.setNumber(mt1.getNumber() + number);
-        }
-        required.put(material.getName(), mt1);
-    }
-
-
-    private int randomNumber(int number, Boolean rangeCreate, Integer createMin, Integer createMax) {
-        rangeCreate = rangeCreate == null || rangeCreate;
-        // 一次制作成本totalPrice 获取min-max个 概率计算次数
-        int num = 0;
-        while (number > 0) {
-            number -= rangeCreate ? RandomUtil.randomInt(createMin, createMax, true, true) : createMin;
-            num++;
-        }
-        return num;
     }
 
 

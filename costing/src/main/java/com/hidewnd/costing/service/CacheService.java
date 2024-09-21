@@ -15,6 +15,8 @@ public interface CacheService {
     // 获取值
     Object get(String key);
 
+    <T> T getObject(String cacheKey, Class<T> Clazz);
+
     // 获取值
     String getString(String key);
 

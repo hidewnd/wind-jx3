@@ -12,7 +12,6 @@ public class Material implements Serializable {
     /**
      * 材料ID
      */
-    @JsonIgnore
     private String id;
     @JsonIgnore
     private String uiId;
@@ -30,7 +29,6 @@ public class Material implements Serializable {
     /**
      * 中间产物 配方信息
      */
-    @JsonIgnore
     private Formulas formulas;
 
     @JsonIgnore

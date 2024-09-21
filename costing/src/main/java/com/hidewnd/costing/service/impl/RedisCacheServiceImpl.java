@@ -1,5 +1,6 @@
 package com.hidewnd.costing.service.impl;
 
+import com.alibaba.fastjson2.JSONObject;
 import com.hidewnd.costing.service.CacheService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -10,6 +11,7 @@ import java.util.Collections;
 import java.util.concurrent.TimeUnit;
 
 @Component("redisCacheService")
+
 public class RedisCacheServiceImpl implements CacheService {
     private RedisTemplate<String, Object> redisTemplate;
 
@@ -48,6 +50,12 @@ public class RedisCacheServiceImpl implements CacheService {
     @Override
     public Object get(String key) {
         return redisTemplate.opsForValue().get(key);
+    }
+
+    @Override
+    public <T> T getObject(String key, Class<T> Clazz) {
+        Object obj = redisTemplate.opsForValue().get(key);
+        return obj == null ? null : JSONObject.parseObject(obj.toString(), Clazz);
     }
 
     // 获取值

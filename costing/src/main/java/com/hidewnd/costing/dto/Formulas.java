@@ -1,5 +1,6 @@
 package com.hidewnd.costing.dto;
 
+import com.hidewnd.costing.costant.FormulasEnum;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
@@ -14,6 +15,11 @@ public class Formulas implements Serializable {
      * 配方ID
      */
     private String id;
+
+    /**
+     * 配方分类
+     */
+    private FormulasEnum type;
 
     /**
      * 制品ID
@@ -49,6 +55,9 @@ public class Formulas implements Serializable {
      * 总计制作次数
      */
     private int times;
+
+
+    private List<CostDetailDto> makeList;
 
 
 }
