@@ -105,6 +105,7 @@ public class CostingServiceImpl implements CostingService {
         //总计制作次数
         result.setMaterialId(formulas.getMaterialId());
         parseFormula(formulas, number, rangeCreate, makeList, required);
+        result.setEnergies(formulas.getEnergies());
         result.setMakeDetail(makeList);
         return result;
     }

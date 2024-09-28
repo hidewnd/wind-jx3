@@ -32,6 +32,9 @@ public class CostItemResult implements Serializable {
     @Schema(description = "合计成本价格式化")
     private String costString;
 
+    @Schema(description = "预计消耗精力")
+    private Integer energies;
+
     @Schema(description = "合计交易行价")
     private Long value;
 
