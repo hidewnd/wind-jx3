@@ -20,7 +20,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.task.AsyncTaskExecutor;
 import org.springframework.stereotype.Service;
 
-import javax.swing.*;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -55,7 +54,6 @@ public class CostingServiceImpl implements CostingService {
 
     private CacheService cacheService;
 
-    @Autowired
     private AsyncTaskExecutor asyncTaskExecutor;
 
 
@@ -68,6 +66,12 @@ public class CostingServiceImpl implements CostingService {
     @Autowired
     public void setJx3BoxRemote(Jx3BoxRemote jx3BoxRemote) {
         this.jx3BoxRemote = jx3BoxRemote;
+    }
+
+
+    @Autowired
+    public void setAsyncTaskExecutor(AsyncTaskExecutor asyncTaskExecutor) {
+        this.asyncTaskExecutor = asyncTaskExecutor;
     }
 
     @Override
@@ -85,10 +89,10 @@ public class CostingServiceImpl implements CostingService {
         // 缓存结果直接返回
         String resultKey = StrUtil.format("{}{}_{}", CACHE_COST_ITEM,
                 request.getServer(), DigestUtil.sha1Hex(JSONArray.toJSONString(map)));
-//        result = cacheService.getObject(resultKey, CostItemResult.class);
-//        if (result != null) {
-//            return R.successByObj(result);
-//        }
+        result = cacheService.getObject(resultKey, CostItemResult.class);
+        if (result != null) {
+            return R.successByObj(result);
+        }
         Map<String, Material> required = new HashMap<>();
         result = parseFormula(request.getFormulaName(), request.getNumber(), request.getRangeCreate(), required);
         computerCostValue(request, result, required);
@@ -101,7 +105,6 @@ public class CostingServiceImpl implements CostingService {
         CostItemResult result = new CostItemResult();
         result.setFormulaName(formulaName);
         result.setNumber(number);
-        Map<String, Material> map = new HashMap<>();
         // 查询配方及所需材料
         Formulas formulas = jx3BoxRemote.queryFormulasAndNumber(null, formulaName);
         List<CostDetailDto> makeList = new ArrayList<>();
