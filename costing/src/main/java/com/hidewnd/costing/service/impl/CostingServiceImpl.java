@@ -13,12 +13,14 @@ import com.hidewnd.costing.service.CacheService;
 import com.hidewnd.costing.service.CostingService;
 import com.hidewnd.costing.service.Jx3BoxRemote;
 import com.hidewnd.costing.utils.BoxUtils;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.task.AsyncTaskExecutor;
 import org.springframework.stereotype.Service;
 
+import javax.swing.*;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -29,6 +31,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
+@Slf4j
 @Service("costingService")
 public class CostingServiceImpl implements CostingService {
 
@@ -82,10 +85,10 @@ public class CostingServiceImpl implements CostingService {
         // 缓存结果直接返回
         String resultKey = StrUtil.format("{}{}_{}", CACHE_COST_ITEM,
                 request.getServer(), DigestUtil.sha1Hex(JSONArray.toJSONString(map)));
-        result = cacheService.getObject(resultKey, CostItemResult.class);
-        if (result != null) {
-            return R.successByObj(result);
-        }
+//        result = cacheService.getObject(resultKey, CostItemResult.class);
+//        if (result != null) {
+//            return R.successByObj(result);
+//        }
         Map<String, Material> required = new HashMap<>();
         result = parseFormula(request.getFormulaName(), request.getNumber(), request.getRangeCreate(), required);
         computerCostValue(request, result, required);
@@ -114,6 +117,7 @@ public class CostingServiceImpl implements CostingService {
                               List<CostDetailDto> makeList, Map<String, Material> required) {
         //总计制作次数
         int totalTimes = randomNumber(formulas, number, rangeCreate, makeList);
+        log.info("制作对象{}, 总计制作次数:{}", StrUtil.emptyIfNull(formulas.getFormulaName()), totalTimes);
         formulas.setTimes(totalTimes);
         int energies = formulas.getEnergies() * totalTimes;
         for (Material item : formulas.getItems()) {
@@ -158,19 +162,6 @@ public class CostingServiceImpl implements CostingService {
         required.put(material.getName(), mt1);
     }
 
-    private void addRequireMaterial(Map<String, Material> map, Map<String, Material> required) {
-        if (CollectionUtil.isEmpty(map)) {
-            return;
-        }
-        map.forEach((k, v) -> {
-            Material material = required.get(k);
-            if (material == null) {
-                required.put(k, v);
-                return;
-            }
-            material.setNumber(material.getNumber() + v.getNumber());
-        });
-    }
 
     private void computerCostValue(CostItemRequest request, CostItemResult result, Map<String, Material> required) {
         // 成本价格计算
@@ -198,12 +189,18 @@ public class CostingServiceImpl implements CostingService {
                 asyncTaskExecutor.submitCompletable(() -> {
                     Material material = entry.getValue();
                     String value = cacheService.getString(Jx3BoxRemoteImpl.CACHE_NAME_SPACE + material.getId());
+                    long price = -1;
                     if (StrUtil.isNotEmpty(value)) {
-                        totalCostValue.addAndGet(Long.parseLong(value));
-                        countDownLatch.countDown();
-                        return;
+                        price = Long.parseLong(value) * material.getNumber();
+                        log.info("computeCostValue 材料：{}({}) 数量：{} 价格：{}", material.getName(), material.getId(), material.getNumber(), price);
                     }
-                    totalCostValue.addAndGet(jx3BoxRemote.queryPrice(server, material.getId(), material.getNumber()));
+                    if (price == -1) {
+                        price = jx3BoxRemote.queryPrice(server, material.getId(), material.getNumber());
+                        log.info("computeCostValue 材料：{}({}) 数量：{} 价格：{}", material.getName(), material.getId(), material.getNumber(), price);
+                    }
+                    material.setValue(price);
+                    material.setValueString(BoxUtils.computePrice(price));
+                    totalCostValue.addAndGet(price);
                     countDownLatch.countDown();
                 });
             }

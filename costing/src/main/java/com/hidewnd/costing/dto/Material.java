@@ -31,6 +31,9 @@ public class Material implements Serializable {
      */
     private Formulas formulas;
 
+    private Long value;
+    private String valueString;
+
     @JsonIgnore
     private String desc;
 

@@ -69,7 +69,11 @@
             <artifactId>fastjson2</artifactId>
             <version>2.0.43</version>
         </dependency>
-
+        <dependency>
+            <groupId>io.github.jx3api</groupId>
+            <artifactId>jx3-api-autoconfigure</artifactId>
+            <version>1.1</version>
+        </dependency>
     </dependencies>
 
     <build>

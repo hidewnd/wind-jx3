@@ -128,7 +128,7 @@ public class Jx3BoxRemoteImpl implements Jx3BoxRemote {
 
     @Override
     public long queryPrice(String server, String itemId, int number) {
-        return queryPriceV2(server, itemId, number);
+        return queryPriceV1(server, itemId, number);
     }
 
     public long queryPriceV1(String server, String itemId, int number) {
