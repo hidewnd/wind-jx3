@@ -12,8 +12,9 @@
     </description>
 
     <modules>
-        <module>costing</module>
+        <module>winds-costing</module>
         <module>winds-common</module>
+        <module>winds-aggregation</module>
     </modules>
 
 

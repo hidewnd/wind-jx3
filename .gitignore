@@ -18,7 +18,7 @@ target/
 *.iws
 *.iml
 *.ipr
-
+*Test.java
 ### NetBeans ###
 /nbproject/private/
 /nbbuild/
@@ -31,6 +31,8 @@ build/
 
 ### VS Code ###
 .vscode/
+
+target/
 
 
 ### Spring Boot ###
