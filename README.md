@@ -8,14 +8,9 @@
 
 
 ## 部署
-- 启动redis：
-```shell
-
-```
 
 - 打包：`mvn clean package -DskipTests`
 - 启动：`java -jar costing/target/winds-costing.jar`
-
 
 - Docker部署
 
@@ -39,9 +34,11 @@ docker run -d -p 6379:6379 \
 
 #构建jdk21运行环境
 docker build -t jdk21env:0.0.1 .
+
 # jdk21运行镜像编译
 docker build -f dockerfile -t hidewnd/winds-costing:0.0.2 .
-# 成本预算服务部署
+
+# 部署成本预算服务
 docker run -d -p 9001:9001\
 -v /home/winds/:/app \
 -e JAR_NAME=winds-costing.jar \
@@ -53,7 +50,7 @@ docker run -d -p 9001:9001\
 ## 目录结构描述
 ```text
 ├── winds                                                       
-├── costing                                         # 成本计算服务
+├── winds-costing                                  # 成本计算服务
 │   ├── src           
 │   │   ├── main   
 │   │   │   │   ├── java
