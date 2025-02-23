@@ -1,6 +1,8 @@
 package com.hidewnd.costing.dto;
 
+import com.hidewnd.costing.dto.validate.RequestModel;
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
 import java.io.Serializable;
@@ -14,6 +16,7 @@ public class CostList implements Serializable {
     private String server;
 
     @Schema(description = "清单明细列表")
+    @NotNull(message = "清单明细列表不能为空", groups = RequestModel.class)
     private List<CostItem> items;
 
     @Schema(description = "合计成本")

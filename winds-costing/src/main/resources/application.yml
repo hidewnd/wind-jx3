@@ -1,15 +1,20 @@
 server:
   port: 9001
 spring:
-  profiles:
-    include: dev
   application:
     name: costing
+  profiles:
+    include: dev
+  cache:
+    live-time: 180000  # 缓存过期时间（单位：ms）
+    type: redis
+    redis:
+      cache-null-values: true  # 允许缓存空值，防止缓存穿透
   data:
     redis:
       host: 192.168.3.4
       port: 6379
-      database: 2
+      database: 4
       lettuce:
         pool:
           min-idle: 0
@@ -37,10 +42,6 @@ springdoc:
 box:
   default:
     server: '剑胆琴心'
-  cache:
-    time: 60
-    result:
-      time: 120
 jx3api:
   url: 'https://www.jx3api.com'
   token: ''

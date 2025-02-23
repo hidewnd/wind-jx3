@@ -10,10 +10,9 @@ import lombok.Data;
 import java.io.Serializable;
 
 @Data
-@Schema(description = "技艺成本查询体")
-public class CostItemRequest implements Serializable {
+public class CostListItemRequest implements Serializable {
 
-    @Schema(description = "服务器", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+    @Schema(description = "服务器")
     private String server;
 
     @NotBlank(message = "配方名称不能为空", groups = RequestModel.class)
@@ -24,8 +23,4 @@ public class CostItemRequest implements Serializable {
     @NotNull(message = "需求数量不能为空", groups = RequestModel.class)
     @Schema(description = "需求数量", requiredMode = Schema.RequiredMode.REQUIRED, minProperties = 1)
     private Integer number;
-
-    @Schema(description = "是否随机产出数量, 默认为True")
-    private Boolean rangeCreate;
-
 }
