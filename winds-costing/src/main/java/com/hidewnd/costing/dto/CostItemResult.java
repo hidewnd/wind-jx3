@@ -41,6 +41,9 @@ public class CostItemResult implements Serializable {
     @Schema(description = "合计交易行价格式化")
     private String valueString;
 
+    @Schema(description = "实际产出数量")
+    private Integer actualNumber;
+
     @Schema(description = "实际利润")
     private Long actualProfit;
 

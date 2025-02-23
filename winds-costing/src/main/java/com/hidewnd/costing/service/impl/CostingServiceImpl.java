@@ -81,7 +81,8 @@ public class CostingServiceImpl implements CostingService {
         if (StrUtil.isEmpty(request.getFormulaName())) {
             throw new CommonException("未找到配方名称");
         }
-        request.setFormulaName(request.getFormulaName().replaceFirst("\\[", "")
+        request.setFormulaName(request.getFormulaName()
+                .replaceFirst("\\[", "")
                 .replaceFirst("]", ""));
         Map<String, Object> map = new HashMap<>();
         map.put("formulaName", request.getFormulaName());
@@ -94,7 +95,9 @@ public class CostingServiceImpl implements CostingService {
             return R.successByObj(result);
         }
         Map<String, Material> required = new HashMap<>();
+        // 解析配方 计算所需材料及次数
         result = parseFormula(request.getFormulaName(), request.getNumber(), request.getRangeCreate(), required);
+        // 成本价格计算
         computerCostValue(request, result, required);
         cacheService.set(resultKey, JSONObject.toJSONString(result), resultCacheTime, TimeUnit.SECONDS);
         return R.successByObj(result);
@@ -113,6 +116,7 @@ public class CostingServiceImpl implements CostingService {
         parseFormula(formulas, number, rangeCreate, makeList, required);
         result.setEnergies(formulas.getEnergies());
         result.setMakeDetail(makeList);
+        result.setActualNumber(makeList.stream().map(CostDetailDto::getMakeNumber).reduce(0, Integer::sum));
         return result;
     }
 

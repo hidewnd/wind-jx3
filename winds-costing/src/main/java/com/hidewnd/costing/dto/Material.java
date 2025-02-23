@@ -29,6 +29,7 @@ public class Material implements Serializable {
     /**
      * 中间产物 配方信息
      */
+    @JsonIgnore
     private Formulas formulas;
 
     private Long value;
