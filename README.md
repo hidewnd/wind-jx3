@@ -82,6 +82,7 @@ hidewnd/costing:0.0.2
   "number": 1,
   "rangeCreate": true
 }
+
 ```
 
 > Response
@@ -97,14 +98,14 @@ hidewnd/costing:0.0.2
     "formulaName": "龙血磨石",
     "materialId": "5_31139",
     "number": 1,
-    "cost": 12885406,
-    "costString": "1288金54银6铜",
-    "energies": 300,
+    "cost": 13682720,
+    "costString": "1368金27银20铜",
+    "energies": 120,
     "value": 15003900,
     "valueString": "1500金39银",
-    "actualNumber": 21,
-    "actualProfit": 1368299,
-    "actualProfitString": "136金82银99铜",
+    "actualNumber": 1,
+    "actualProfit": 570985,
+    "actualProfitString": "57金9银85铜",
     "requiredMap": {
       "沉香木": {
         "id": "5_30855",
@@ -113,33 +114,26 @@ hidewnd/costing:0.0.2
         "value": 7074000,
         "valueString": "707金40银"
       },
-      "血琥珀": {
-        "id": "5_71329",
-        "name": "血琥珀",
-        "number": 45,
-        "value": 850500,
-        "valueString": "85金5银"
+      "熟铁锭": {
+        "id": "5_71115",
+        "name": "熟铁锭",
+        "number": 20,
+        "value": 3803980,
+        "valueString": "380金39银80铜"
       },
       "硼砂": {
         "id": "5_30679",
         "name": "硼砂",
-        "number": 38,
-        "value": 1568906,
-        "valueString": "156金89银6铜"
+        "number": 20,
+        "value": 825740,
+        "valueString": "82金57银40铜"
       },
       "木炭": {
         "id": "5_31992",
         "name": "木炭",
-        "number": 200,
-        "value": 1200000,
-        "valueString": "120金"
-      },
-      "铁矿": {
-        "id": "5_30677",
-        "name": "铁矿",
-        "number": 45,
-        "value": 333000,
-        "valueString": "33金30银"
+        "number": 20,
+        "value": 120000,
+        "valueString": "12金"
       },
       "猫眼石": {
         "id": "5_30852",
@@ -154,51 +148,6 @@ hidewnd/costing:0.0.2
         "no": 0,
         "name": "龙血磨石",
         "makeNumber": 1
-      },
-      {
-        "no": 0,
-        "name": "熟铁锭",
-        "makeNumber": 2
-      },
-      {
-        "no": 1,
-        "name": "熟铁锭",
-        "makeNumber": 2
-      },
-      {
-        "no": 2,
-        "name": "熟铁锭",
-        "makeNumber": 2
-      },
-      {
-        "no": 3,
-        "name": "熟铁锭",
-        "makeNumber": 2
-      },
-      {
-        "no": 4,
-        "name": "熟铁锭",
-        "makeNumber": 2
-      },
-      {
-        "no": 5,
-        "name": "熟铁锭",
-        "makeNumber": 3
-      },
-      {
-        "no": 6,
-        "name": "熟铁锭",
-        "makeNumber": 2
-      },
-      {
-        "no": 7,
-        "name": "熟铁锭",
-        "makeNumber": 2
-      },
-      {
-        "no": 8,
-        "name": "熟铁锭",
-        "makeNumber": 3
       }
     ]
   }
