@@ -10,30 +10,43 @@
 ## 部署
 - 启动redis：
 ```shell
-docker run -p 6379:6379 -v /home/redis/data:/data \
--v /home/redis/redis.conf:/etc/redis/redis.conf \
---name redis redis
+
 ```
 
 - 打包：`mvn clean package -DskipTests`
 - 启动：`java -jar costing/target/winds-costing.jar`
+
+
 - Docker部署
 
-Dockerfile
+> jdk21运行镜像构建文件
+
 ```dockerfile
-FROM openjdk:21
+FROM meltwaterfoundation/drone-maven-jdk21:latest
 WORKDIR /app
-COPY winds-costing.jar /app/costing.jar
-ENTRYPOINT ["java","--enable-preview","-jar","/app/costing.jar"]
+EXPOSE 9001
+CMD ["sh", "-c", "java -jar --enable-preview /app/${JAR_NAME}"]
 ```
-运行
+
+> 部署服务
+
 ```shell
-# 镜像编译
+# 部署redis
+docker run -d -p 6379:6379 \
+-v /home/redis/data:/data \
+-v /home/redis/redis.conf:/etc/redis/redis.conf \
+--name redis redis
+
+#构建jdk21运行环境
+docker build -t jdk21env:0.0.1 .
+# jdk21运行镜像编译
 docker build -f dockerfile -t hidewnd/winds-costing:0.0.2 .
-# 容器运行
-docker run -d --net=bridge -p 9001:9001 \
--v /home/winds-costing.jar:/app/costing.jar \
-hidewnd/costing:0.0.2
+# 成本预算服务部署
+docker run -d -p 9001:9001\
+-v /home/winds/:/app \
+-e JAR_NAME=winds-costing.jar \
+--name winds_costing jdk21env:0.0.1
+
 ```
 
 
