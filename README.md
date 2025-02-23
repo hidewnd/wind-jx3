@@ -60,14 +60,16 @@ hidewnd/costing:0.0.1
 - `formulaName`：技艺制品名称
 - `number`：数量
 - `cost`：成本价格
+- `rangeCreate`: 是否随机生成，否则按配方最小生成数计算
 - `costString`：成本价格格式化
 - `value`：交易行价格
 - `valueString`：交易行价格格式化
 - `actualProfit`：实际利润
+- `actualNumber`: 实际产出数量
 - `actualProfitString`：实际利润格式化
 - `requiredMap`：所需材料数量
 
-### V0.0.0.1
+### V0.0.0.2
 - 查询单个技艺制品成本：POST `/costing/one`
 
 > Request 
@@ -77,7 +79,8 @@ hidewnd/costing:0.0.1
 {
   "server": "剑胆琴心",
   "formulaName": "[断浪·腕·绣（外破）]",
-  "number": 2
+  "number": 2,
+  "rangeCreate": true
 }
 ```
 
@@ -86,173 +89,121 @@ hidewnd/costing:0.0.1
 ```json
 {
   "success": true,
-  "code": 2000,
+  "code": 200,
   "msg": "请求成功",
   "obj": {
-    "materialId": "5_47568",
-    "server": "剑胆琴心",
+    "server": null,
     "type": null,
-    "formulaName": "断浪·腕·绣（外破）",
-    "number": 2,
-    "cost": 29037600,
-    "costString": "2903金76银",
-    "value": 43995600,
-    "valueString": "4399金56银",
-    "actualProfit": 12758220,
-    "actualProfitString": "1275金82银20铜",
+    "formulaName": "龙血磨石",
+    "materialId": "5_31139",
+    "number": 1,
+    "cost": 12885406,
+    "costString": "1288金54银6铜",
+    "energies": 300,
+    "value": 15003900,
+    "valueString": "1500金39银",
+    "actualNumber": 21,
+    "actualProfit": 1368299,
+    "actualProfitString": "136金82银99铜",
     "requiredMap": {
-      "玛瑙": {
-        "name": "玛瑙",
-        "number": 16
-      },
-      "百股线": {
-        "name": "百股线",
-        "number": 8
-      },
       "沉香木": {
+        "id": "5_30855",
         "name": "沉香木",
-        "number": 10
+        "number": 5,
+        "value": 7074000,
+        "valueString": "707金40银"
       },
-      "百染线": {
-        "name": "百染线",
-        "number": 80
+      "血琥珀": {
+        "id": "5_71329",
+        "name": "血琥珀",
+        "number": 45,
+        "value": 850500,
+        "valueString": "85金5银"
       },
-      "银鳞": {
-        "name": "银鳞",
-        "number": 20
+      "硼砂": {
+        "id": "5_30679",
+        "name": "硼砂",
+        "number": 38,
+        "value": 1568906,
+        "valueString": "156金89银6铜"
       },
-      "棉线": {
-        "name": "棉线",
-        "number": 120
+      "木炭": {
+        "id": "5_31992",
+        "name": "木炭",
+        "number": 200,
+        "value": 1200000,
+        "valueString": "120金"
+      },
+      "铁矿": {
+        "id": "5_30677",
+        "name": "铁矿",
+        "number": 45,
+        "value": 333000,
+        "valueString": "33金30银"
       },
       "猫眼石": {
+        "id": "5_30852",
         "name": "猫眼石",
-        "number": 10
-      },
-      "补阙石": {
-        "name": "补阙石",
-        "number": 40
+        "number": 5,
+        "value": 1859000,
+        "valueString": "185金90银"
       }
-    }
-  }
-}
-```
-
-
-- 查询多个技艺制品成本：POST `/costing/list`
-
-> Request
-
-```json
-{
-  "server": "剑胆琴心",
-  "items": [
-    {
-      "formulaName": "断浪·上品破秽散",
-      "number": 10
     },
-    {
-      "formulaName": "断浪·太后饼",
-      "number": 10
-    }
-  ]
-}
-
-```
-
-> Response
-
-```json
-{
-  "success": true,
-  "code": 2000,
-  "msg": "请求成功",
-  "obj": {
-    "server": "剑胆琴心",
-    "items": [
+    "makeDetail": [
       {
-        "materialId": "5_47613",
-        "server": "剑胆琴心",
-        "formulaName": "断浪·上品破秽散",
-        "number": 10
+        "no": 0,
+        "name": "龙血磨石",
+        "makeNumber": 1
       },
       {
-        "materialId": "5_47642",
-        "server": "剑胆琴心",
-        "formulaName": "断浪·太后饼",
-        "number": 10
+        "no": 0,
+        "name": "熟铁锭",
+        "makeNumber": 2
+      },
+      {
+        "no": 1,
+        "name": "熟铁锭",
+        "makeNumber": 2
+      },
+      {
+        "no": 2,
+        "name": "熟铁锭",
+        "makeNumber": 2
+      },
+      {
+        "no": 3,
+        "name": "熟铁锭",
+        "makeNumber": 2
+      },
+      {
+        "no": 4,
+        "name": "熟铁锭",
+        "makeNumber": 2
+      },
+      {
+        "no": 5,
+        "name": "熟铁锭",
+        "makeNumber": 3
+      },
+      {
+        "no": 6,
+        "name": "熟铁锭",
+        "makeNumber": 2
+      },
+      {
+        "no": 7,
+        "name": "熟铁锭",
+        "makeNumber": 2
+      },
+      {
+        "no": 8,
+        "name": "熟铁锭",
+        "makeNumber": 3
       }
-    ],
-    "cost": 6479700,
-    "costString": "647金97银",
-    "value": 23261000,
-    "valueString": "2326金10银",
-    "actualProfit": 16664995,
-    "actualProfitString": "1666金49银95铜",
-    "requiredMap": {
-      "杂碎": {
-        "name": "杂碎",
-        "number": 35
-      },
-      "血": {
-        "name": "血",
-        "number": 35
-      },
-      "五味子": {
-        "name": "五味子",
-        "number": 40
-      },
-      "精制面粉": {
-        "name": "精制面粉",
-        "number": 50
-      },
-      "金针": {
-        "name": "金针",
-        "number": 80
-      },
-      "调料": {
-        "name": "调料",
-        "number": 140
-      },
-      "蛋": {
-        "name": "蛋",
-        "number": 50
-      },
-      "药囊": {
-        "name": "药囊",
-        "number": 60
-      },
-      "补阙石": {
-        "name": "补阙石",
-        "number": 72
-      },
-      "虫草": {
-        "name": "虫草",
-        "number": 40
-      },
-      "露水": {
-        "name": "露水",
-        "number": 20
-      },
-      "药罐": {
-        "name": "药罐",
-        "number": 60
-      },
-      "碎肉": {
-        "name": "碎肉",
-        "number": 75
-      },
-      "蜂王浆": {
-        "name": "蜂王浆",
-        "number": 9
-      },
-      "银鳞": {
-        "name": "银鳞",
-        "number": 12
-      }
-    }
+    ]
   }
 }
+
 ```
 
 
