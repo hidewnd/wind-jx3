@@ -69,6 +69,9 @@ public class CostingServiceImpl implements CostingService {
         Map<String, Material> required = new HashMap<>();
         // 解析配方 计算所需材料及次数
         result = parseFormula(request.getFormulaName(), request.getNumber(), rangeCreate, required);
+        if (request.getNumber() == null && result.getActualNumber() != null) {
+            request.setNumber(result.getNumber());
+        }
         // 成本价格计算
         computerCostValue(request, result, required);
         return R.successByObj(result);
@@ -78,12 +81,16 @@ public class CostingServiceImpl implements CostingService {
                                         Map<String, Material> required) {
         CostItemResult result = new CostItemResult();
         result.setFormulaName(formulaName);
-        result.setNumber(number);
         // 查询配方及所需材料
         Formulas formulas = jx3BoxRemote.queryFormulasAndNumber(null, formulaName);
         if (formulas == null) {
             throw new CommonException(R.CODE_PARAM_ERROR, "该配方不存在！");
         }
+        if (number == null) {
+            number = formulas.getCreateMin();
+            rangeCreate = false;
+        }
+        result.setNumber(number);
         List<CostDetailDto> makeList = new ArrayList<>();
         //总计制作次数
         result.setMaterialId(formulas.getMaterialId());
