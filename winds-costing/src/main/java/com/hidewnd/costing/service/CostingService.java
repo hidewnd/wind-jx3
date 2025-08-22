@@ -1,10 +1,10 @@
 package com.hidewnd.costing.service;
 
 import com.hidewnd.common.base.response.R;
-import com.hidewnd.costing.dto.CostItemRequest;
+import com.hidewnd.costing.dto.request.CostItemRequest;
 import com.hidewnd.costing.dto.CostItemResult;
-import com.hidewnd.costing.dto.CostList;
-import com.hidewnd.costing.dto.CostListRequest;
+import com.hidewnd.costing.dto.CostListResult;
+import com.hidewnd.costing.dto.request.CostListRequest;
 
 public interface CostingService {
     /**
@@ -15,5 +15,5 @@ public interface CostingService {
      */
     R<CostItemResult> queryCosting(CostItemRequest request);
 
-    R<CostList> queryCostingList(CostListRequest request);
+    R<CostListResult> queryCostingList(CostListRequest request);
 }

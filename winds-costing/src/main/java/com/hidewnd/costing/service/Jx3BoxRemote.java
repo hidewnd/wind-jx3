@@ -6,6 +6,10 @@ import com.hidewnd.costing.costant.FormulasEnum;
 import com.hidewnd.costing.dto.Formulas;
 import com.hidewnd.costing.dto.Material;
 
+/**
+ * Jx3BoxRemote接口
+ * 该接口定义了与JX3盒子远程交互的相关方法，主要用于查询材料信息、交易价格以及配方数据等功能
+ */
 public interface Jx3BoxRemote {
 
 
@@ -17,6 +21,11 @@ public interface Jx3BoxRemote {
      */
     Material queryMaterialById(String id);
 
+/**
+ * 根据材料名称查询材料信息的方法
+ * @param name 材料名称，用于查询的依据
+ * @return 返回匹配名称的材料对象，如果未找到则返回null
+ */
     Material queryMaterialByName(String name);
 
     /**
@@ -39,5 +48,12 @@ public interface Jx3BoxRemote {
      */
     Formulas queryFormulasAndNumber(FormulasEnum type, String name);
 
+/**
+ * 获取指定公式类型的JSON对象
+ *
+ * @param type 公式类型枚举，用于标识要获取的公式类型
+ * @param name 公式名称，用于标识具体的公式
+ * @return 返回一个JSONObject对象，包含指定公式类型和名称的公式数据
+ */
     JSONObject getFormulasJSON(FormulasEnum type, String name);
 }

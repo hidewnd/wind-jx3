@@ -1,10 +1,13 @@
 package com.hidewnd.costing.service.impl;
 
-import cn.hutool.core.util.RandomUtil;
 import cn.hutool.core.util.StrUtil;
-import com.hidewnd.common.base.CommonException;
 import com.hidewnd.common.base.response.R;
 import com.hidewnd.costing.dto.*;
+import com.hidewnd.costing.dto.request.CostItem;
+import com.hidewnd.costing.dto.request.CostItemRequest;
+import com.hidewnd.costing.dto.request.CostListRequest;
+import com.hidewnd.costing.handler.FormulaBuilder;
+import com.hidewnd.costing.handler.FormulaParseAdapter;
 import com.hidewnd.costing.service.CacheService;
 import com.hidewnd.costing.service.CostingService;
 import com.hidewnd.costing.service.Jx3BoxRemote;
@@ -17,9 +20,8 @@ import org.springframework.core.task.AsyncTaskExecutor;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
+import java.math.RoundingMode;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicLong;
@@ -35,11 +37,9 @@ public class CostingServiceImpl implements CostingService {
     private String feeRate;
 
     private Jx3BoxRemote jx3BoxRemote;
-
     private CacheService cacheService;
-
     private AsyncTaskExecutor asyncTaskExecutor;
-
+    private FormulaParseAdapter formulaParseAdapter;
 
     @Autowired
     @Qualifier("redisCacheService")
@@ -52,162 +52,162 @@ public class CostingServiceImpl implements CostingService {
         this.jx3BoxRemote = jx3BoxRemote;
     }
 
-
     @Autowired
     public void setAsyncTaskExecutor(AsyncTaskExecutor asyncTaskExecutor) {
         this.asyncTaskExecutor = asyncTaskExecutor;
     }
 
+    @Autowired
+    public void setFormulaParseAdapter(FormulaParseAdapter formulaParseAdapter) {
+        this.formulaParseAdapter = formulaParseAdapter;
+    }
+
     @Override
     public R<CostItemResult> queryCosting(CostItemRequest request) {
+        String server = StrUtil.emptyToDefault(request.getServer(), defaultServer);
+        boolean rangeCreate = request.getRangeCreate() != null ? request.getRangeCreate() : true;
+        request.setServer(server);
+        FormulaBuilder formulaBuilder = FormulaBuilder.create(rangeCreate);
+        formulaBuilder.addFormula(request.getFormulaName(), request.getNumber());
+        formulaBuilder.parseFormulas(formulaParseAdapter);
+        formulaBuilder.parseMaterial();
+
         CostItemResult result = new CostItemResult();
-        result.setServer(StrUtil.emptyToDefault(request.getServer(), defaultServer));
-        request.setFormulaName(request.getFormulaName()
-                .replaceFirst("\\[", "")
-                .replaceFirst("]", ""));
-        boolean rangeCreate = request.getRangeCreate() == null ? Boolean.TRUE : request.getRangeCreate();
-        Map<String, Material> required = new HashMap<>();
-        // 解析配方 计算所需材料及次数
-        result = parseFormula(request.getFormulaName(), request.getNumber(), rangeCreate, required);
-        if (request.getNumber() == null && result.getActualNumber() != null) {
-            request.setNumber(result.getNumber());
+        result.setNumber(request.getNumber());
+        result.setServer(server);
+        Formulas formulas = formulaBuilder.getByName(request.getFormulaName());
+        if (formulas != null) {
+            result.setFormulaName(formulas.getFormulaName());
+            result.setMaterialId(formulas.getMaterialId());
+            result.setType(formulas.getType());
+            int actualNumber = formulaBuilder.getMakeList().stream()
+                    .filter(dto -> StrUtil.equals(dto.getName(), formulas.getFormulaName()))
+                    .mapToInt(CostDetailDto::getMakeNumber).sum();
+            result.setActualNumber(actualNumber);
         }
-        // 成本价格计算
-        computerCostValue(request, result, required);
+        result.setRequiredMap(formulaBuilder.getMaterialMap());
+        result.setEnergies(formulaBuilder.getTotalEnergies());
+        computeItemCost(result);
         return R.successByObj(result);
     }
 
-    private CostItemResult parseFormula(String formulaName, Integer number, Boolean rangeCreate,
-                                        Map<String, Material> required) {
-        CostItemResult result = new CostItemResult();
-        result.setFormulaName(formulaName);
-        // 查询配方及所需材料
-        Formulas formulas = jx3BoxRemote.queryFormulasAndNumber(null, formulaName);
-        if (formulas == null) {
-            throw new CommonException(R.CODE_PARAM_ERROR, "该配方不存在！");
+    @Override
+    public R<CostListResult> queryCostingList(CostListRequest request) {
+        String server = StrUtil.emptyToDefault(request.getServer(), defaultServer);
+        boolean rangeCreate = request.getRangeCreate() != null ? request.getRangeCreate() : true;
+        request.setServer(server);
+        FormulaBuilder formulaBuilder = FormulaBuilder.create(rangeCreate);
+        for (CostItem item : request.getItems()) {
+            formulaBuilder.addFormula(item.getFormulaName(), item.getNumber());
         }
-        if (number == null) {
-            number = formulas.getCreateMin();
-            rangeCreate = false;
-        }
-        result.setNumber(number);
-        List<CostDetailDto> makeList = new ArrayList<>();
-        //总计制作次数
-        result.setMaterialId(formulas.getMaterialId());
-        parseFormula(formulas, number, rangeCreate, makeList, required);
-        result.setEnergies(formulas.getEnergies());
-        result.setMakeDetail(makeList);
-        result.setActualNumber(makeList.stream().map(CostDetailDto::getMakeNumber).reduce(0, Integer::sum));
-        return result;
-    }
-
-    private void parseFormula(Formulas formulas, Integer number, Boolean rangeCreate,
-                              List<CostDetailDto> makeList, Map<String, Material> required) {
-        //总计制作次数
-        int totalTimes = randomNumber(formulas, number, rangeCreate, makeList);
-        log.info("制作对象{}, 总计制作次数:{}", StrUtil.emptyIfNull(formulas.getFormulaName()), totalTimes);
-        formulas.setTimes(totalTimes);
-        int energies = formulas.getEnergies() * totalTimes;
-        for (Material item : formulas.getItems()) {
-            if (item.getFormulas() != null) {
-                parseFormula(item.getFormulas(), item.getNumber() * totalTimes, rangeCreate, makeList, required);
-                energies += item.getFormulas().getEnergies() * totalTimes;
-                continue;
+        formulaBuilder.parseFormulas(formulaParseAdapter);
+        formulaBuilder.parseMaterial();
+        CostListResult result = new CostListResult();
+        result.setServer(server);
+        Map<String, CostResultItem> formulasMap = new HashMap<>();
+        for (CostItem item : request.getItems()) {
+            CostResultItem resultItem = new CostResultItem();
+            resultItem.setNumber(item.getNumber());
+            Formulas formulas = formulaBuilder.getByName(item.getFormulaName());
+            if (formulas != null) {
+                resultItem.setFormulaName(formulas.getFormulaName());
+                resultItem.setMaterialId(formulas.getMaterialId());
+                resultItem.setType(formulas.getType());
+                int actualNumber = formulaBuilder.getMakeList().stream()
+                        .filter(dto -> StrUtil.equals(dto.getName(), formulas.getFormulaName()))
+                        .mapToInt(CostDetailDto::getMakeNumber).sum();
+                resultItem.setActualNumber(actualNumber);
             }
-            setMaterialNumber(required, item, item.getNumber() * totalTimes);
+            formulasMap.put(item.getFormulaName(), resultItem);
         }
-        formulas.setEnergies(energies);
-        formulas.setMakeList(makeList);
+        result.setFormulas(formulasMap);
+        result.setRequiredMap(formulaBuilder.getMaterialMap());
+        result.setEnergies(formulaBuilder.getTotalEnergies());
+        computeListCost(result);
+        return R.successByObj(result);
     }
 
 
-    private int randomNumber(Formulas formulas, int totalNum, Boolean rangeCreate, List<CostDetailDto> makeList) {
-        rangeCreate = rangeCreate == null || rangeCreate;
-        Integer createMin = formulas.getCreateMin();
-        Integer createMax = formulas.getCreateMax();
-        // 一次制作成本totalPrice 获取min-max个 概率计算次数
-        int num = 0;
-        while (totalNum > 0) {
-            int makeNum = rangeCreate ? RandomUtil.randomInt(createMin, createMax, true, true) : createMin;
-            makeList.add(new CostDetailDto(num, formulas.getFormulaName(), makeNum));
-            totalNum -= makeNum;
-            num++;
-        }
-        return num;
-    }
-
-    private static void setMaterialNumber(Map<String, Material> required, Material material, int number) {
-        Material mt1 = required.getOrDefault(material.getName(), null);
-        if (mt1 == null) {
-            mt1 = new Material();
-            mt1.setName(material.getName());
-            mt1.setId(material.getId());
-            mt1.setSourceId(material.getSourceId());
-            mt1.setNumber(number);
-        } else {
-            mt1.setNumber(mt1.getNumber() + number);
-        }
-        required.put(material.getName(), mt1);
-    }
-
-
-    private void computerCostValue(CostItemRequest request, CostItemResult result, Map<String, Material> required) {
-        // 成本价格计算
-        result.setRequiredMap(required);
-        long totalCostValue = computeCostValue(request.getServer(), required);
-        result.setCost(totalCostValue);
-        result.setCostString(BoxUtils.computePrice(totalCostValue));
-        // 交易行价格
-        long tradingPrice = jx3BoxRemote.queryPrice(request.getServer(), result.getMaterialId(), request.getNumber());
+    private void computeItemCost(CostItemResult result) {
+        String server = result.getServer();
+        Map<String, Material> requiredMap = result.getRequiredMap();
+        // 成本价格
+        long totalCost = computeMaterialCost(server, requiredMap);
+        result.setCost(totalCost);
+        result.setCostString(BoxUtils.computePrice(totalCost));
+        // 实际产出所得在交易行的总价
+        long tradingPrice = jx3BoxRemote.queryPrice(server, result.getMaterialId(), result.getActualNumber());
         result.setValue(tradingPrice);
         result.setValueString(BoxUtils.computePrice(tradingPrice));
-        // 计算实际收益
-        long fees = new BigDecimal(result.getValue() / request.getNumber()).multiply(new BigDecimal(feeRate)).longValue();
-        long actualProfit = result.getValue() - result.getCost() - fees * request.getNumber();
-        result.setActualProfit(actualProfit);
-        result.setActualProfitString(BoxUtils.computePrice(actualProfit));
+        // 交易行手续费
+        BigDecimal fee = new BigDecimal(feeRate);
+        long totalFees = new BigDecimal(tradingPrice).multiply(fee)
+                .setScale(0, RoundingMode.HALF_UP).longValue();
+        // 实际利润：实际产出所得在交易行的总价 - 成本价格 - 交易行手续费
+        result.setActualProfit(tradingPrice - totalCost - totalFees);
+        result.setActualProfitString(BoxUtils.computePrice(tradingPrice - totalCost - totalFees));
     }
 
-    private long computeCostValue(String server, Map<String, Material> required) {
-        AtomicLong totalCostValue = new AtomicLong(0);
-        CountDownLatch countDownLatch = new CountDownLatch(required.size());
-        if (!required.isEmpty()) {
-            // 查询材料价格
-            for (Map.Entry<String, Material> entry : required.entrySet()) {
-                asyncTaskExecutor.submitCompletable(() -> {
-                    Material material = entry.getValue();
-                    String value = cacheService.getString(Jx3BoxRemoteImpl.CACHE_NAME_SPACE + material.getId());
-                    long price = -1;
-                    if (StrUtil.isNotEmpty(value)) {
-                        price = Long.parseLong(value) * material.getNumber();
-                        log.info("computeCostValue 材料：{}({}) 数量：{} 价格：{}", material.getName(), material.getId(), material.getNumber(), price);
-                    }
-                    if (price == -1) {
-                        price = jx3BoxRemote.queryPrice(server, material.getId(), material.getNumber());
-                        log.info("computeCostValue 材料：{}({}) 数量：{} 价格：{}", material.getName(), material.getId(), material.getNumber(), price);
-                    }
-                    material.setValue(price);
-                    material.setValueString(BoxUtils.computePrice(price));
-                    totalCostValue.addAndGet(price);
-                    countDownLatch.countDown();
-                });
-            }
-            try {
-                countDownLatch.await();
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
-            }
+    private void computeListCost(CostListResult result) {
+        String server = result.getServer();
+        Map<String, Material> requiredMap = result.getRequiredMap();
+        // 成本价格
+        long totalCost = computeMaterialCost(server, requiredMap);
+        result.setCost(totalCost);
+        result.setCostString(BoxUtils.computePrice(totalCost));
+        // 实际产出所得在交易行的总价
+        long totalTradingPrice = 0;
+        for (CostResultItem resultItem : result.getFormulas().values()) {
+            totalTradingPrice += jx3BoxRemote.queryPrice(server, resultItem.getMaterialId(), resultItem.getActualNumber());
         }
-        return totalCostValue.get();
+        result.setValue(totalTradingPrice);
+        result.setValueString(BoxUtils.computePrice(totalTradingPrice));
+        // 交易行手续费
+        BigDecimal fee = new BigDecimal(feeRate);
+        long totalFees = new BigDecimal(totalTradingPrice).multiply(fee)
+                .setScale(0, RoundingMode.HALF_UP).longValue();
+        // 实际利润：实际产出所得在交易行的总价 - 成本价格 - 交易行手续费
+        result.setActualProfit(totalTradingPrice - totalCost - totalFees);
+        result.setActualProfitString(BoxUtils.computePrice(totalTradingPrice - totalCost - totalFees));
     }
 
+    private long computeMaterialCost(String server, Map<String, Material> materials) {
+        if (materials.isEmpty()) return 0;
 
-    @Override
-    public R<CostList> queryCostingList(CostListRequest costList) {
-        costList.setServer(StrUtil.emptyToDefault(costList.getServer(), defaultServer));
-        // 解析配方
-        return R.successByObj(null);
+        AtomicLong totalCost = new AtomicLong(0);
+        CountDownLatch latch = new CountDownLatch(materials.size());
+
+        materials.values().forEach(material ->
+                asyncTaskExecutor.submit(() -> {
+                    try {
+                        long price = getMaterialPrice(server, material);
+                        material.setValue(price);
+                        material.setValueString(BoxUtils.computePrice(price));
+                        totalCost.addAndGet(price);
+                    } catch (Exception e) {
+                        log.error("材料价格计算异常: {}", material.getName(), e);
+                    } finally {
+                        latch.countDown();
+                    }
+                })
+        );
+        try {
+            latch.await();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            log.error("成本计算被中断", e);
+        }
+        return totalCost.get();
     }
 
+    private long getMaterialPrice(String server, Material material) {
+        String cacheKey = Jx3BoxRemoteImpl.CACHE_NAME_SPACE + material.getId();
+        String cached = cacheService.getString(cacheKey);
+
+        if (StrUtil.isNotEmpty(cached)) {
+            return (long) (Double.parseDouble(cached) * material.getNumber());
+        }
+        return jx3BoxRemote.queryPrice(server, material.getId(), material.getNumber());
+    }
 
 }

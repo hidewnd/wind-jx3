@@ -1,4 +1,4 @@
-package com.hidewnd.costing.dto;
+package com.hidewnd.costing.dto.request;
 
 import com.hidewnd.costing.dto.validate.RequestModel;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -10,10 +10,7 @@ import lombok.Data;
 import java.io.Serializable;
 
 @Data
-public class CostListItemRequest implements Serializable {
-
-    @Schema(description = "服务器")
-    private String server;
+public class CostItem implements Serializable {
 
     @NotBlank(message = "配方名称不能为空", groups = RequestModel.class)
     @Schema(description = "技艺制品名称", requiredMode = Schema.RequiredMode.REQUIRED)

@@ -3,7 +3,8 @@ package com.hidewnd.costing.config;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.crypto.digest.DigestUtil;
 import com.alibaba.fastjson2.JSONArray;
-import com.hidewnd.costing.dto.CostItemRequest;
+import com.hidewnd.costing.dto.request.CostItemRequest;
+import com.hidewnd.costing.dto.request.CostListRequest;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.cache.interceptor.KeyGenerator;
@@ -69,6 +70,14 @@ public class CacheConfig {
                     Map<String, Object> map = new HashMap<>();
                     map.put("formulaName", formulaName);
                     map.put("number", number);
+                    map.put("rangeCreate", rangeCreate);
+                    key = StrUtil.format("{}_{}", server, DigestUtil.sha1Hex(JSONArray.toJSONString(map)));
+                }
+                if (params[0] instanceof CostListRequest request) {
+                    String server = StrUtil.emptyToDefault(request.getServer(), defaultServer);
+                    boolean rangeCreate = request.getRangeCreate() == null ? Boolean.TRUE : request.getRangeCreate();
+                    Map<String, Object> map = new HashMap<>();
+                    map.put("items", request.getItems());
                     map.put("rangeCreate", rangeCreate);
                     key = StrUtil.format("{}_{}", server, DigestUtil.sha1Hex(JSONArray.toJSONString(map)));
                 }

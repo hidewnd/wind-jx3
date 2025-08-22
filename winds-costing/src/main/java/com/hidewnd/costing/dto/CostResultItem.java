@@ -3,13 +3,11 @@ package com.hidewnd.costing.dto;
 import com.hidewnd.costing.costant.FormulasEnum;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
-import lombok.EqualsAndHashCode;
 
 import java.io.Serializable;
 
 @Data
-@EqualsAndHashCode(callSuper = true)
-public class CostItemResult extends CostResult implements Serializable {
+public class CostResultItem implements Serializable {
 
     @Schema(description = "技艺类型")
     private FormulasEnum type;
@@ -25,5 +23,4 @@ public class CostItemResult extends CostResult implements Serializable {
 
     @Schema(description = "实际产出数量")
     private Integer actualNumber;
-
 }
