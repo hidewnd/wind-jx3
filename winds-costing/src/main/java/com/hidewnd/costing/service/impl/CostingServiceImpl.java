@@ -67,11 +67,10 @@ public class CostingServiceImpl implements CostingService {
         String server = StrUtil.emptyToDefault(request.getServer(), defaultServer);
         boolean rangeCreate = request.getRangeCreate() != null ? request.getRangeCreate() : true;
         request.setServer(server);
-        FormulaBuilder formulaBuilder = FormulaBuilder.create(rangeCreate);
-        formulaBuilder.addFormula(request.getFormulaName(), request.getNumber());
-        formulaBuilder.parseFormulas(formulaParseAdapter);
-        formulaBuilder.parseMaterial();
-
+        FormulaBuilder formulaBuilder = FormulaBuilder.create(rangeCreate)
+                .addFormula(request.getFormulaName(), request.getNumber())
+                .parseFormulas(formulaParseAdapter)
+                .analysisMaterial();
         CostItemResult result = new CostItemResult();
         result.setNumber(request.getNumber());
         result.setServer(server);
@@ -101,7 +100,7 @@ public class CostingServiceImpl implements CostingService {
             formulaBuilder.addFormula(item.getFormulaName(), item.getNumber());
         }
         formulaBuilder.parseFormulas(formulaParseAdapter);
-        formulaBuilder.parseMaterial();
+        formulaBuilder.analysisMaterial();
         CostListResult result = new CostListResult();
         result.setServer(server);
         Map<String, CostResultItem> formulasMap = new HashMap<>();
@@ -143,9 +142,11 @@ public class CostingServiceImpl implements CostingService {
         BigDecimal fee = new BigDecimal(feeRate);
         long totalFees = new BigDecimal(tradingPrice).multiply(fee)
                 .setScale(0, RoundingMode.HALF_UP).longValue();
+        // 保管费 默认24小时
+        long custodyFee = new BigDecimal("4000").multiply(new BigDecimal("2")).longValue();
         // 实际利润：实际产出所得在交易行的总价 - 成本价格 - 交易行手续费
-        result.setActualProfit(tradingPrice - totalCost - totalFees);
-        result.setActualProfitString(BoxUtils.computePrice(tradingPrice - totalCost - totalFees));
+        result.setActualProfit(tradingPrice - totalCost - totalFees - custodyFee);
+        result.setActualProfitString(BoxUtils.computePrice(result.getActualProfit()));
     }
 
     private void computeListCost(CostListResult result) {
@@ -166,17 +167,17 @@ public class CostingServiceImpl implements CostingService {
         BigDecimal fee = new BigDecimal(feeRate);
         long totalFees = new BigDecimal(totalTradingPrice).multiply(fee)
                 .setScale(0, RoundingMode.HALF_UP).longValue();
+        // 保管费 默认24小时
+        long custodyFee = new BigDecimal("4000").multiply(new BigDecimal("2")).longValue();
         // 实际利润：实际产出所得在交易行的总价 - 成本价格 - 交易行手续费
-        result.setActualProfit(totalTradingPrice - totalCost - totalFees);
-        result.setActualProfitString(BoxUtils.computePrice(totalTradingPrice - totalCost - totalFees));
+        result.setActualProfit(totalTradingPrice - totalCost - totalFees - custodyFee);
+        result.setActualProfitString(BoxUtils.computePrice(result.getActualProfit()));
     }
 
     private long computeMaterialCost(String server, Map<String, Material> materials) {
         if (materials.isEmpty()) return 0;
-
         AtomicLong totalCost = new AtomicLong(0);
         CountDownLatch latch = new CountDownLatch(materials.size());
-
         materials.values().forEach(material ->
                 asyncTaskExecutor.submit(() -> {
                     try {

@@ -71,45 +71,41 @@ public class FormulaBuilder {
     public FormulaBuilder parseFormulas(FormulaParseAdapter adapter) {
         for (String name : this.numberMap.keySet()) {
             Formulas formulas = adapter.parse(name);
-            if (this.numberMap.get(name) == null) {
-                this.rangeCreate = false;
-                this.numberMap.put(name, formulas.getCreateMin());
-            }
+            this.numberMap.computeIfAbsent(name, _ -> formulas.getCreateMin());
             this.formulasMap.put(name, formulas);
         }
         return this;
     }
 
-    public FormulaBuilder parseMaterial() {
+    public FormulaBuilder analysisMaterial() {
         this.makeList = new ArrayList<>(); // 制作轮次记录
         this.totalEnergies = 0;
-        Map<String, Integer> secondMap = new HashMap<>();  // 中间产物需求数暂存
+        Map<String, Integer> intermediateMap = new HashMap<>();  // 中间产物需求数暂存
         for (Map.Entry<String, Integer> entry : this.numberMap.entrySet()) {
             String formulaName = entry.getKey();
             Integer requireNumber = entry.getValue();
             Formulas formulas = formulasMap.get(formulaName);
-            parseMaterial(formulas, requireNumber, secondMap);
+            if(formulas != null) {
+                analysisMaterial(formulas, requireNumber, intermediateMap);
+            }
         }
         // 中间半成品最后统一合并模拟
-        if (!secondMap.isEmpty()) {
-            Map<String, Integer> thiredMap = new HashMap<>();
-            for (Map.Entry<String, Integer> entry : secondMap.entrySet()) {
-                Formulas formulas = this.formulasMap.get(entry.getKey());
-                if (formulas == null) continue;
-                parseMaterial(formulas, entry.getValue(), thiredMap);
-            }
-            if (!thiredMap.isEmpty()) {
-                for (Map.Entry<String, Integer> entry : thiredMap.entrySet()) {
-                    Formulas formulas = this.formulasMap.get(entry.getKey());
-                    if (formulas == null) continue;
-                    parseMaterial(formulas, entry.getValue(), null);
+        while (!intermediateMap.isEmpty()) {
+            Map<String, Integer> nextIntermediateMap = new HashMap<>();
+            for (Map.Entry<String, Integer> entry : intermediateMap.entrySet()) {
+                String formulaName = entry.getKey();
+                Integer requireNumber = entry.getValue();
+                Formulas formulas = formulasMap.get(formulaName);
+                if (formulas != null) {
+                    analysisMaterial(formulas, requireNumber, nextIntermediateMap);
                 }
             }
+            intermediateMap = nextIntermediateMap;
         }
         return this;
     }
 
-    private void parseMaterial(Formulas formulas, Integer requireNumber, Map<String, Integer> intermediateMap) {
+    private void analysisMaterial(Formulas formulas, Integer requireNumber, Map<String, Integer> intermediateMap) {
         // 模拟总共需要制作的次数
         Integer times = calculateTimes(formulas, requireNumber);
         this.totalEnergies += formulas.getEnergies() * times;
@@ -150,7 +146,7 @@ public class FormulaBuilder {
         int times = 0, remaining = requireNums;
         int min = formulas.getCreateMin(), max = formulas.getCreateMax();
         while (remaining > 0) {
-            int makeNum = this.rangeCreate ? RandomUtil.randomInt(min, max + 1) : min;
+            int makeNum = this.rangeCreate && min < max ? RandomUtil.randomInt(min, max + 1) : min;
             this.makeList.add(new CostDetailDto(times++, formulas.getFormulaName(), makeNum));
             remaining -= makeNum;
         }

@@ -29,7 +29,7 @@ public class SwaggerConfig implements WebMvcConfigurer {
                 .info(new Info().title(applicationName)
                         .contact(new Contact().name("hidewnd").url("https://github.com/hidewnd/wind-jx3"))
                         .description("剑网三·生活技艺成本计算")
-                        .version("v2.0")
+                        .version("v0.0.3")
                         .license(new License().name("Apache 2.0").url("http://springdoc.org")))
                 .externalDocs(new ExternalDocumentation()
                         .description("剑网三·生活技艺成本计算")
