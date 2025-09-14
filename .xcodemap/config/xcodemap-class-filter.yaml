@@ -1,0 +1,34 @@
+autoDetectedPackages:
+- com.hidewnd.aggregation
+- com.hidewnd.common
+- com.hidewnd.costing
+- com.hidewnd.util
+enableAutoDetect: true
+entryDisplayConfig:
+  excludedPathPatterns: []
+  skipJsCss: true
+funcDisplayConfig:
+  skipConstructors: false
+  skipFieldAccess: true
+  skipFieldChange: true
+  skipGetters: false
+  skipNonProjectPackages: false
+  skipPrivateMethods: false
+  skipSetters: false
+ignoreSameClassCall: null
+ignoreSamePackageCall: null
+includedPackagePrefixes: null
+includedParentClasses: null
+maxColSize: 32
+maxNumFirst: 12
+maxNumFirstImportant: 1024
+maxNumHash: 3
+maxNumHashImportant: 256
+maxObjectDepth: 4
+maxStrSize: 4096
+name: xcodemap-filter
+openMainWindow: true
+recordMode: all
+sourceDisplayConfig:
+  color: blue
+startOnDebug: false

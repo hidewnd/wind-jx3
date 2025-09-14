@@ -51,6 +51,8 @@ public class CacheConfig {
 
     /**
      * 成本计算缓存Key生成器： [查询服务器]_[请求参数SHA-1摘要值]
+     *
+     *
      */
     @Bean
     public KeyGenerator costingKeyGenerator() {
