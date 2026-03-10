@@ -36,6 +36,7 @@ public class Jx3BoxRemoteImpl implements Jx3BoxRemote {
     public static final String CACHE_NAME_SPACE = "box:craftL:price:";
     public static final String CACHE_MANUFACTURES_TYPE = "box:manufactures:type:";
     public static final String CACHE_MANUFACTURES_DATA = "box:manufactures:data:";
+    public static final String CACHE_PRODUCT_PRICE = "box:product:price:";
 
     @Value("${box.default.server: '剑胆琴心'}")
     private String defaultServer;

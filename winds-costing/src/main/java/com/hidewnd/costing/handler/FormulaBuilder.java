@@ -43,6 +43,12 @@ public class FormulaBuilder {
     private List<CostDetailDto> makeList;
 
     /**
+     * 各配方实际产出数量缓存
+     */
+    @Getter
+    private final Map<String, Integer> actualNumberMap;
+
+    /**
      * 总消耗精力
      */
     @Getter
@@ -54,6 +60,7 @@ public class FormulaBuilder {
         this.numberMap = new ConcurrentHashMap<>();
         this.materialMap = new ConcurrentHashMap<>();
         this.formulasMap = new ConcurrentHashMap<>();
+        this.actualNumberMap = new ConcurrentHashMap<>();
     }
 
     public static FormulaBuilder create(boolean rangeCreate) {
@@ -79,6 +86,7 @@ public class FormulaBuilder {
 
     public FormulaBuilder analysisMaterial() {
         this.makeList = new ArrayList<>(); // 制作轮次记录
+        this.actualNumberMap.clear(); // 清空实际产出数量缓存
         this.totalEnergies = 0;
         Map<String, Integer> intermediateMap = new HashMap<>();  // 中间产物需求数暂存
         for (Map.Entry<String, Integer> entry : this.numberMap.entrySet()) {
@@ -136,6 +144,16 @@ public class FormulaBuilder {
     }
 
     /**
+     * 获取配方的实际产出数量
+     *
+     * @param formulaName 配方名称
+     * @return 实际产出数量，如果不存在则返回0
+     */
+    public Integer getActualNumber(String formulaName) {
+        return this.actualNumberMap.getOrDefault(normalizeFormulaName(formulaName), 0);
+    }
+
+    /**
      * 计算制作轮次数
      *
      * @param formulas    配方
@@ -145,11 +163,15 @@ public class FormulaBuilder {
     private Integer calculateTimes(Formulas formulas, Integer requireNums) {
         int times = 0, remaining = requireNums;
         int min = formulas.getCreateMin(), max = formulas.getCreateMax();
+        int totalProduced = 0;
         while (remaining > 0) {
             int makeNum = this.rangeCreate && min < max ? RandomUtil.randomInt(min, max + 1) : min;
             this.makeList.add(new CostDetailDto(times++, formulas.getFormulaName(), makeNum));
+            totalProduced += makeNum;
             remaining -= makeNum;
         }
+        // 更新实际产出数量缓存
+        this.actualNumberMap.merge(formulas.getFormulaName(), totalProduced, Integer::sum);
         return times;
     }
 

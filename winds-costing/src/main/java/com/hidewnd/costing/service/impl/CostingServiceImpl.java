@@ -12,6 +12,7 @@ import com.hidewnd.costing.service.CacheService;
 import com.hidewnd.costing.service.CostingService;
 import com.hidewnd.costing.service.Jx3BoxRemote;
 import com.hidewnd.costing.utils.BoxUtils;
+import com.hidewnd.costing.utils.CostCalculator;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -20,10 +21,10 @@ import org.springframework.core.task.AsyncTaskExecutor;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 @Slf4j
@@ -79,9 +80,7 @@ public class CostingServiceImpl implements CostingService {
             result.setFormulaName(formulas.getFormulaName());
             result.setMaterialId(formulas.getMaterialId());
             result.setType(formulas.getType());
-            int actualNumber = formulaBuilder.getMakeList().stream()
-                    .filter(dto -> StrUtil.equals(dto.getName(), formulas.getFormulaName()))
-                    .mapToInt(CostDetailDto::getMakeNumber).sum();
+            int actualNumber = formulaBuilder.getActualNumber(formulas.getFormulaName());
             result.setActualNumber(actualNumber);
         }
         result.setRequiredMap(formulaBuilder.getMaterialMap());
@@ -112,9 +111,7 @@ public class CostingServiceImpl implements CostingService {
                 resultItem.setFormulaName(formulas.getFormulaName());
                 resultItem.setMaterialId(formulas.getMaterialId());
                 resultItem.setType(formulas.getType());
-                int actualNumber = formulaBuilder.getMakeList().stream()
-                        .filter(dto -> StrUtil.equals(dto.getName(), formulas.getFormulaName()))
-                        .mapToInt(CostDetailDto::getMakeNumber).sum();
+                int actualNumber = formulaBuilder.getActualNumber(formulas.getFormulaName());
                 resultItem.setActualNumber(actualNumber);
             }
             formulasMap.put(item.getFormulaName(), resultItem);
@@ -135,17 +132,14 @@ public class CostingServiceImpl implements CostingService {
         result.setCost(totalCost);
         result.setCostString(BoxUtils.computePrice(totalCost));
         // 实际产出所得在交易行的总价
-        long tradingPrice = jx3BoxRemote.queryPrice(server, result.getMaterialId(), result.getActualNumber());
+        long tradingPrice = queryPriceWithRetry(server, result.getMaterialId(), result.getActualNumber());
         result.setValue(tradingPrice);
         result.setValueString(BoxUtils.computePrice(tradingPrice));
-        // 交易行手续费
+        // 使用CostCalculator计算实际利润
         BigDecimal fee = new BigDecimal(feeRate);
-        long totalFees = new BigDecimal(tradingPrice).multiply(fee)
-                .setScale(0, RoundingMode.HALF_UP).longValue();
-        // 保管费 默认24小时
-        long custodyFee = new BigDecimal("4000").multiply(new BigDecimal("2")).longValue();
-        // 实际利润：实际产出所得在交易行的总价 - 成本价格 - 交易行手续费
-        result.setActualProfit(tradingPrice - totalCost - totalFees - custodyFee);
+        long custodyFee = CostCalculator.DEFAULT_CUSTODY_FEE;
+        long actualProfit = CostCalculator.calculateProfit(tradingPrice, totalCost, fee, custodyFee);
+        result.setActualProfit(actualProfit);
         result.setActualProfitString(BoxUtils.computePrice(result.getActualProfit()));
     }
 
@@ -159,18 +153,15 @@ public class CostingServiceImpl implements CostingService {
         // 实际产出所得在交易行的总价
         long totalTradingPrice = 0;
         for (CostResultItem resultItem : result.getFormulas().values()) {
-            totalTradingPrice += jx3BoxRemote.queryPrice(server, resultItem.getMaterialId(), resultItem.getActualNumber());
+            totalTradingPrice += queryPriceWithRetry(server, resultItem.getMaterialId(), resultItem.getActualNumber());
         }
         result.setValue(totalTradingPrice);
         result.setValueString(BoxUtils.computePrice(totalTradingPrice));
-        // 交易行手续费
+        // 使用CostCalculator计算实际利润
         BigDecimal fee = new BigDecimal(feeRate);
-        long totalFees = new BigDecimal(totalTradingPrice).multiply(fee)
-                .setScale(0, RoundingMode.HALF_UP).longValue();
-        // 保管费 默认24小时
-        long custodyFee = new BigDecimal("4000").multiply(new BigDecimal("2")).longValue();
-        // 实际利润：实际产出所得在交易行的总价 - 成本价格 - 交易行手续费
-        result.setActualProfit(totalTradingPrice - totalCost - totalFees - custodyFee);
+        long custodyFee = CostCalculator.DEFAULT_CUSTODY_FEE;
+        long actualProfit = CostCalculator.calculateProfit(totalTradingPrice, totalCost, fee, custodyFee);
+        result.setActualProfit(actualProfit);
         result.setActualProfitString(BoxUtils.computePrice(result.getActualProfit()));
     }
 
@@ -193,7 +184,12 @@ public class CostingServiceImpl implements CostingService {
                 })
         );
         try {
-            latch.await();
+            // 设置30秒超时，防止永久等待
+            boolean completed = latch.await(30, TimeUnit.SECONDS);
+            if (!completed) {
+                log.warn("材料价格计算超时，已完成 {} / {} 个材料",
+                    materials.size() - latch.getCount(), materials.size());
+            }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             log.error("成本计算被中断", e);
@@ -208,7 +204,44 @@ public class CostingServiceImpl implements CostingService {
         if (StrUtil.isNotEmpty(cached)) {
             return (long) (Double.parseDouble(cached) * material.getNumber());
         }
-        return jx3BoxRemote.queryPrice(server, material.getId(), material.getNumber());
+        // 带重试的价格查询
+        return queryPriceWithRetry(server, material.getId(), material.getNumber());
+    }
+
+    /**
+     * 带重试的价格查询方法
+     *
+     * @param server 服务器
+     * @param itemId 物品ID
+     * @param number 数量
+     * @return 价格
+     */
+    private long queryPriceWithRetry(String server, String itemId, int number) {
+        int maxRetries = 3;
+        long lastError = 0;
+
+        for (int attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                return jx3BoxRemote.queryPrice(server, itemId, number);
+            } catch (Exception e) {
+                lastError = 0; // 查询失败返回0
+                log.warn("价格查询失败 (尝试 {}/{}): {} - {}, 错误: {}",
+                    attempt, maxRetries, itemId, number, e.getMessage());
+
+                if (attempt < maxRetries) {
+                    try {
+                        // 指数退避: 1s, 2s, 4s
+                        Thread.sleep(1000L * (1 << (attempt - 1)));
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
+                }
+            }
+        }
+
+        log.error("价格查询重试{}次后失败: {} - {}", maxRetries, itemId, number);
+        return lastError;
     }
 
 }
