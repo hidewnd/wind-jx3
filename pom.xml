@@ -14,7 +14,7 @@
     <modules>
         <module>winds-common</module>
         <module>winds-costing</module>
-        <module>winds-aggregation</module>
+        <module>winds-application</module>
     </modules>
 
 
