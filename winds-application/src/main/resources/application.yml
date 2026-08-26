@@ -1,0 +1,35 @@
+server:
+  port: 9002
+spring:
+  application:
+    name: winds-application
+  profiles:
+    include: dev
+  cache:
+    live-time: 180000
+    type: redis
+    redis:
+      cache-null-values: true
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+knife4j:
+  enable: true
+  setting:
+    language: zh_cn
+  production: false
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    tags-sorter: alpha
+    operations-sorter: alpha
+  api-docs:
+    path: /v3/api-docs
+  group-configs:
+    - group: default
+      paths-to-match: /**
+      packages-to-scan:
+        - com.hidewnd.winds.costing.controller
+        - com.hidewnd.winds.aggregation.controller
+        - com.hidewnd.winds.bot.huangli.controller

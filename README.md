@@ -10,7 +10,7 @@
 ## 部署
 
 - 打包：`mvn clean package -DskipTests`
-- 启动：`java -jar costing/target/winds-costing.jar`
+- 启动：`java -jar winds-application/target/winds-application.jar`
 
 - Docker部署
 
@@ -51,11 +51,14 @@ docker run -d -p 9001:9001\
 ```text
 ├── winds                                                       
 ├── winds-costing                                  # 成本计算服务
-│   ├── src           
-│   │   ├── main   
-│   │   │   │   ├── java
-│   │   │   │   ├── resources
-│   │   │   │   ├── ├──application.yml             # 成本计算服务配置文件
+├── winds-application                              # 项目统一启动入口及配置
+│   ├── src
+│   │   ├── main
+│   │   │   ├── java
+│   │   │   └── resources
+│   │   │       └── application.yml                # 项目统一配置文件
+├── winds-costing                                  # 成本计算业务模块
+├── winds-aggregation                              # 蝗虫登记业务模块
 ├── winds-common                                   # 通用包
 ├── .gitignore
 ├── pom.xml

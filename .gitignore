@@ -38,3 +38,22 @@ target/
 ### Spring Boot ###
 application-dev.yml
 application-prod.yml
+
+
+#VibeCoding
+.alma-snapshots/
+.codegraph/
+.worktrees/
+.Agents/
+.cursor/
+.claude/
+.code/
+.codex/
+.opencode/
+.ai/
+.omx/
+.agents/
+skills/
+AGENTS.md
+
+/docs/superpowers/
