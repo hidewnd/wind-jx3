@@ -47,6 +47,18 @@
             <version>0.0.1-SNAPSHOT</version>
         </dependency>
 
+        <dependency>
+            <groupId>com.hidewnd</groupId>
+            <artifactId>winds-bot</artifactId>
+            <version>${winds.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.hidewnd</groupId>
+            <artifactId>winds-ws</artifactId>
+            <version>${winds.version}</version>
+        </dependency>
+
     </dependencies>
 
     <build>

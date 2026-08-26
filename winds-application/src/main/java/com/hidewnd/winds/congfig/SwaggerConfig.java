@@ -28,11 +28,11 @@ public class SwaggerConfig implements WebMvcConfigurer {
                         .addParameters("adminID", new HeaderParameter().description("请填写用户ID").schema(new StringSchema())))
                 .info(new Info().title(applicationName)
                         .contact(new Contact().name("hidewnd").url("https://github.com/hidewnd/wind-jx3"))
-                        .description("剑网三·生活技艺成本计算")
-                        .version("v0.0.3")
+                        .description("剑网三·个人支持服务")
+                        .version("v0.0.4")
                         .license(new License().name("Apache 2.0").url("http://springdoc.org")))
                 .externalDocs(new ExternalDocumentation()
-                        .description("剑网三·生活技艺成本计算")
+                        .description("剑网三·个人支持服务")
                         .url("https://www.hidewnd.com"));
     }
 

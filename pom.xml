@@ -14,6 +14,8 @@
     <modules>
         <module>winds-common</module>
         <module>winds-costing</module>
+        <module>winds-bot</module>
+        <module>winds-ws</module>
         <module>winds-application</module>
     </modules>
 
