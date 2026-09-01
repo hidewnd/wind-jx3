@@ -72,7 +72,9 @@ public class WeiboFetchServiceImpl implements WeiboFetchService {
                 return post;
             }
             return new WeiboPost(
-                    post.uid(), fallbackScreenName, post.weiboId(), post.publishedAt(), post.content(), post.url(),
+                    post.uid(), fallbackScreenName, post.weiboId(), post.publishedAt(), post.content(),
+                    post.rawContent(), post.source(), post.regionName(), post.repostsCount(), post.commentsCount(),
+                    post.attitudesCount(), post.url(),
                     post.images(), post.topics(), post.videoCoverImages(), post.retweet());
         });
     }
@@ -100,16 +102,23 @@ public class WeiboFetchServiceImpl implements WeiboFetchService {
             log.warn("微博长文响应无效，weiboId={}", mblog.path("id").asText());
             return;
         }
-        String content = response.path("data").path("longTextContent").asText("");
-        if (!content.isBlank()) {
-            objectNode.put("text", content);
+        JsonNode data = response.path("data");
+        for (String field : new String[]{"longTextContent", "fullText", "text", "content"}) {
+            String content = data.path(field).asText("");
+            if (!content.isBlank()) {
+                objectNode.put("text", content);
+                break;
+            }
         }
     }
 
     private boolean needsExtendedText(JsonNode mblog) {
+        String text = mblog.path("text").asText("");
         return mblog.path("isLongText").asBoolean(false)
                 || mblog.path("isLongText").asInt(0) == 1
                 || mblog.path("is_long_text").asBoolean(false)
-                || mblog.path("text").asText("").contains("展开全文");
+                || text.contains("展开全文")
+                || text.endsWith("...全文")
+                || text.endsWith("…全文");
     }
 }

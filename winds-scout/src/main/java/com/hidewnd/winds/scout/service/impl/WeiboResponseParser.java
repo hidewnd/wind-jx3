@@ -8,6 +8,7 @@ import org.springframework.stereotype.Component;
 
 import java.net.URI;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
@@ -30,7 +31,15 @@ public class WeiboResponseParser {
     private static final DateTimeFormatter WEIBO_TIME =
             DateTimeFormatter.ofPattern("EEE MMM dd HH:mm:ss Z yyyy", Locale.ENGLISH);
     private static final DateTimeFormatter OUTPUT_TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    private static final DateTimeFormatter MINUTE_TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+    private static final DateTimeFormatter DATE = DateTimeFormatter.ISO_LOCAL_DATE;
     private static final Pattern TOPIC_PATTERN = Pattern.compile("#([^#]+)#");
+    private static final Pattern BR_TAG = Pattern.compile("(?i)<br\\s*/?>");
+    private static final Pattern BLOCK_END_TAG = Pattern.compile(
+            "(?i)</(?:p|div|section|article|li|ul|ol|h[1-6])\\s*>");
+    private static final Pattern INTEGER = Pattern.compile("[+-]?\\d+");
+    private static final List<String> COVER_FIELDS = List.of(
+            "url", "cover_image_url", "cover_url", "thumbnail_pic", "thumb_url", "pic_url");
 
     /**
      * 从微博列表响应中解析最新一条有效微博。
@@ -69,7 +78,8 @@ public class WeiboResponseParser {
     WeiboPost parseCard(JsonNode card, String uid) {
         JsonNode mblog = card.path("mblog");
         List<String> topics = topics(mblog);
-        List<String> videoCovers = videoCovers(mblog);
+        String rawContent = textOrNull(mblog.path("text"));
+        List<String> videoCovers = videoCovers(mblog, false);
         List<String> images = images(mblog);
         images.addAll(videoCovers);
         return new WeiboPost(
@@ -77,7 +87,13 @@ public class WeiboResponseParser {
                 mblog.path("user").path("screen_name").asText(""),
                 mblog.path("id").asText(),
                 formatTime(mblog.path("created_at").asText("")),
-                removeTopics(cleanText(mblog.path("text").asText("")), topics),
+                removeTopics(cleanText(rawContent), topics),
+                rawContent,
+                cleanNullableText(mblog.path("source")),
+                trimmedText(mblog.path("region_name")),
+                nullableLong(mblog.path("reposts_count")),
+                nullableLong(mblog.path("comments_count")),
+                nullableLong(mblog.path("attitudes_count")),
                 stripQuery(card.path("scheme").asText("")),
                 distinct(images),
                 topics,
@@ -89,12 +105,19 @@ public class WeiboResponseParser {
         if (!origin.isObject() || origin.isEmpty()) {
             return null;
         }
-        List<String> covers = videoCovers(origin);
+        String rawContent = textOrNull(origin.path("text"));
+        List<String> covers = videoCovers(origin, true);
         List<String> images = images(origin);
         images.addAll(covers);
         return new WeiboPost.Retweet(
                 origin.path("user").path("screen_name").asText(""),
-                cleanText(origin.path("text").asText("")),
+                cleanText(rawContent),
+                rawContent,
+                cleanNullableText(origin.path("source")),
+                trimmedText(origin.path("region_name")),
+                nullableLong(origin.path("reposts_count")),
+                nullableLong(origin.path("comments_count")),
+                nullableLong(origin.path("attitudes_count")),
                 distinct(images),
                 covers);
     }
@@ -155,13 +178,118 @@ public class WeiboResponseParser {
         return values;
     }
 
-    private List<String> videoCovers(JsonNode mblog) {
-        String url = mblog.path("page_info").path("page_pic").path("url").asText("");
-        return url.isBlank() ? List.of() : List.of(url);
+    private List<String> videoCovers(JsonNode mblog, boolean includeNestedRetweet) {
+        LinkedHashSet<String> values = new LinkedHashSet<>();
+        collectCovers(mblog, values, 0, includeNestedRetweet);
+        return new ArrayList<>(values);
+    }
+
+    private void collectCovers(
+            JsonNode mblog,
+            LinkedHashSet<String> values,
+            int depth,
+            boolean includeNestedRetweet) {
+        if (!mblog.isObject() || depth >= 5) {
+            return;
+        }
+        JsonNode pageInfo = mblog.path("page_info");
+        addPageInfoCovers(pageInfo, values);
+        for (JsonNode item : mblog.path("mix_media_info").path("items")) {
+            addPageInfoCovers(item.path("page_info"), values);
+            addPageInfoCovers(item.path("data"), values);
+            addCover(item.path("page_pic"), values);
+        }
+        if (includeNestedRetweet) {
+            collectCovers(mblog.path("retweeted_status"), values, depth + 1, true);
+        }
+    }
+
+    private void addPageInfoCovers(JsonNode pageInfo, LinkedHashSet<String> values) {
+        if (!pageInfo.isObject()) {
+            return;
+        }
+        addCover(pageInfo.path("page_pic"), values);
+        addCover(pageInfo, values);
+        JsonNode mediaInfo = pageInfo.path("media_info");
+        if (mediaInfo.isObject()) {
+            for (String field : COVER_FIELDS) {
+                addCover(mediaInfo.path(field), values);
+            }
+            addCover(mediaInfo.path("page_pic"), values);
+        }
+    }
+
+    private void addCover(JsonNode value, LinkedHashSet<String> values) {
+        String url = extractUrl(value);
+        if (url != null) {
+            values.add(url);
+        }
+    }
+
+    private String extractUrl(JsonNode value) {
+        if (value.isTextual()) {
+            String text = value.asText().trim();
+            return text.isEmpty() ? null : text;
+        }
+        if (!value.isObject()) {
+            return null;
+        }
+        for (String field : COVER_FIELDS) {
+            String url = extractUrl(value.path(field));
+            if (url != null) {
+                return url;
+            }
+        }
+        return extractUrl(value.path("page_pic"));
     }
 
     private String cleanText(String html) {
-        return HtmlUtil.unescape(HtmlUtil.cleanHtmlTag(html)).trim();
+        if (html == null) {
+            return "";
+        }
+        String text = html.replace("\r\n", "\n").replace('\r', '\n');
+        text = BR_TAG.matcher(text).replaceAll("\n");
+        text = BLOCK_END_TAG.matcher(text).replaceAll("\n");
+        return HtmlUtil.unescape(HtmlUtil.cleanHtmlTag(text)).strip();
+    }
+
+    private String cleanNullableText(JsonNode value) {
+        String text = textOrNull(value);
+        if (text == null || text.isBlank()) {
+            return null;
+        }
+        String cleaned = cleanText(text);
+        return cleaned.isBlank() ? null : cleaned;
+    }
+
+    private String trimmedText(JsonNode value) {
+        String text = textOrNull(value);
+        if (text == null || text.isBlank()) {
+            return null;
+        }
+        return text.trim();
+    }
+
+    private String textOrNull(JsonNode value) {
+        return value.isTextual() ? value.asText() : null;
+    }
+
+    private Long nullableLong(JsonNode value) {
+        if (value.isIntegralNumber()) {
+            return value.canConvertToLong() ? value.longValue() : null;
+        }
+        if (!value.isTextual()) {
+            return null;
+        }
+        String text = value.asText().trim();
+        if (!INTEGER.matcher(text).matches()) {
+            return null;
+        }
+        try {
+            return Long.parseLong(text);
+        } catch (NumberFormatException ignored) {
+            return null;
+        }
     }
 
     private String removeTopics(String text, List<String> topics) {
@@ -177,6 +305,12 @@ public class WeiboResponseParser {
             return value;
         }
         try {
+            if (value.matches("\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}")) {
+                return LocalDateTime.parse(value, MINUTE_TIME).format(OUTPUT_TIME);
+            }
+            if (value.matches("\\d{4}-\\d{2}-\\d{2}")) {
+                return LocalDate.parse(value, DATE).atStartOfDay().format(OUTPUT_TIME);
+            }
             return OffsetDateTime.parse(value, WEIBO_TIME).format(OUTPUT_TIME);
         } catch (DateTimeParseException ignored) {
             return value;
@@ -188,6 +322,16 @@ public class WeiboResponseParser {
             if (value.matches("\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}")) {
                 return LocalDateTime.parse(value, OUTPUT_TIME)
                         .atZone(ZoneId.systemDefault())
+                        .toInstant();
+            }
+            if (value.matches("\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}")) {
+                return LocalDateTime.parse(value, MINUTE_TIME)
+                        .atZone(ZoneId.systemDefault())
+                        .toInstant();
+            }
+            if (value.matches("\\d{4}-\\d{2}-\\d{2}")) {
+                return LocalDate.parse(value, DATE)
+                        .atStartOfDay(ZoneId.systemDefault())
                         .toInstant();
             }
             return OffsetDateTime.parse(value, WEIBO_TIME).toInstant();
