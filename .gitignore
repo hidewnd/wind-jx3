@@ -33,6 +33,7 @@ build/
 .vscode/
 
 target/
+test/
 
 
 ### Spring Boot ###

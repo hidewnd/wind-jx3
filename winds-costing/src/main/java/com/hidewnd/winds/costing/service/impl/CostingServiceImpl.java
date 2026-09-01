@@ -54,6 +54,7 @@ public class CostingServiceImpl implements CostingService {
     }
 
     @Autowired
+    @Qualifier("asyncTaskExecutor")
     public void setAsyncTaskExecutor(AsyncTaskExecutor asyncTaskExecutor) {
         this.asyncTaskExecutor = asyncTaskExecutor;
     }

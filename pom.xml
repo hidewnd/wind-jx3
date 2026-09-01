@@ -17,6 +17,7 @@
         <module>winds-bot</module>
         <module>winds-ws</module>
         <module>winds-application</module>
+        <module>winds-scout</module>
     </modules>
 
 

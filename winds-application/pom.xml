@@ -59,6 +59,12 @@
             <version>${winds.version}</version>
         </dependency>
 
+        <dependency>
+            <groupId>com.hidewnd</groupId>
+            <artifactId>winds-scout</artifactId>
+            <version>${winds.version}</version>
+        </dependency>
+
     </dependencies>
 
     <build>
