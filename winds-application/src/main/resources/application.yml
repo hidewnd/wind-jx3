@@ -33,3 +33,4 @@ springdoc:
         - com.hidewnd.winds.costing.controller
         - com.hidewnd.winds.aggregation.controller
         - com.hidewnd.winds.bot.huangli.controller
+        - com.hidewnd.winds.scout.controller
