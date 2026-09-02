@@ -1,0 +1,35 @@
+spring:
+  data:
+    redis:
+      host: <your_conf>
+      port: 6379
+      database: 1
+      lettuce:
+        pool:
+          min-idle: 0
+          max-idle: 8
+          max-wait: -1ms
+          max-active: 6
+    mongodb:
+      database: winds_jx3
+      host: <your_host>
+      port: 27017
+      authentication-database: <your_conf>
+      username: <your_conf>
+      password: <your_conf>
+aliyun:
+  oss:
+    endpoint: <your_host>
+    region: <your_host>
+    access-key-id: <your_host>
+    access-key-secret: <your_host>
+    bucket: <your_host>
+    public-url: <your_host>
+box:
+  default:
+    server: <your_host>
+
+jx3api:
+  url: https://www.jx3api.com
+  token: ''
+  ticket: ''
