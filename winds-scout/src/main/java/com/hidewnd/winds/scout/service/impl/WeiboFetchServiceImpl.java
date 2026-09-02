@@ -2,17 +2,23 @@ package com.hidewnd.winds.scout.service.impl;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.hidewnd.winds.scout.exception.WeiboCookieUpdateException;
 import com.hidewnd.winds.scout.model.WeiboAccount;
 import com.hidewnd.winds.scout.model.WeiboPost;
+import com.hidewnd.winds.scout.repository.WeiboAccountCookieRepository;
 import com.hidewnd.winds.scout.service.WeiboFetchService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestClientResponseException;
 
+import java.net.URI;
 import java.util.Optional;
+import java.util.function.Consumer;
 
 /**
  * 微博移动端接口抓取服务实现，负责请求最新微博并补全长文本。
@@ -27,12 +33,18 @@ public class WeiboFetchServiceImpl implements WeiboFetchService {
 
     private final RestClient restClient;
     private final WeiboResponseParser parser;
+    private final WeiboCookieStore cookieStore;
+    private final WeiboAccountCookieRepository cookieRepository;
 
     public WeiboFetchServiceImpl(
             @Qualifier("weiboRestClient") RestClient restClient,
-            WeiboResponseParser parser) {
+            WeiboResponseParser parser,
+            WeiboCookieStore cookieStore,
+            WeiboAccountCookieRepository cookieRepository) {
         this.restClient = restClient;
         this.parser = parser;
+        this.cookieStore = cookieStore;
+        this.cookieRepository = cookieRepository;
     }
 
     @Override
@@ -40,16 +52,12 @@ public class WeiboFetchServiceImpl implements WeiboFetchService {
         if (uid == null || !uid.matches("\\d+")) {
             throw new IllegalArgumentException("微博UID仅支持数字");
         }
-        JsonNode response = restClient.get()
-                .uri(API_URL + "?type=uid&value=" + uid + "&containerid=107603" + uid)
-                .header(HttpHeaders.USER_AGENT, USER_AGENT)
-                .header(HttpHeaders.ACCEPT, "*/*")
-                .header(HttpHeaders.REFERER, "https://m.weibo.cn/u/" + uid)
-                .header(HttpHeaders.COOKIE, account.getCookie())
-                .header("x-xsrf-token", account.getXsrfToken())
-                .header("x-requested-with", "XMLHttpRequest")
-                .retrieve()
-                .body(JsonNode.class);
+        URI uri = URI.create(API_URL + "?type=uid&value=" + uid + "&containerid=107603" + uid);
+        JsonNode response = getJson(uri, account, headers -> {
+            headers.set(HttpHeaders.ACCEPT, "*/*");
+            headers.set(HttpHeaders.REFERER, "https://m.weibo.cn/u/" + uid);
+            headers.set("x-requested-with", "XMLHttpRequest");
+        });
         if (response == null) {
             throw new IllegalStateException("微博接口返回空响应");
         }
@@ -87,13 +95,10 @@ public class WeiboFetchServiceImpl implements WeiboFetchService {
         }
         JsonNode response;
         try {
-            response = restClient.get()
-                    .uri("https://m.weibo.cn/statuses/extend?id=" + mblog.path("id").asText())
-                    .header(HttpHeaders.USER_AGENT, USER_AGENT)
-                    .header(HttpHeaders.COOKIE, account.getCookie())
-                    .header("x-xsrf-token", account.getXsrfToken())
-                    .retrieve()
-                    .body(JsonNode.class);
+            response = getJson(
+                    URI.create("https://m.weibo.cn/statuses/extend?id=" + mblog.path("id").asText()),
+                    account,
+                    headers -> headers.set(HttpHeaders.ACCEPT, "*/*"));
         } catch (RestClientException exception) {
             log.warn("微博长文请求失败，weiboId={}", mblog.path("id").asText(), exception);
             return;
@@ -120,5 +125,42 @@ public class WeiboFetchServiceImpl implements WeiboFetchService {
                 || text.contains("展开全文")
                 || text.endsWith("...全文")
                 || text.endsWith("…全文");
+    }
+
+    private JsonNode getJson(URI uri, WeiboAccount account, Consumer<HttpHeaders> headersCustomizer) {
+        String cookieHeader = cookieStore.buildCookieHeader(account, uri);
+        String xsrfToken = cookieStore.getXsrfToken(account, uri);
+        try {
+            ResponseEntity<JsonNode> response = restClient.get()
+                    .uri(uri)
+                    .headers(headers -> {
+                        headers.set(HttpHeaders.USER_AGENT, USER_AGENT);
+                        if (!cookieHeader.isBlank()) {
+                            headers.set(HttpHeaders.COOKIE, cookieHeader);
+                        }
+                        if (!xsrfToken.isBlank()) {
+                            headers.set("x-xsrf-token", xsrfToken);
+                        }
+                        headersCustomizer.accept(headers);
+                    })
+                    .retrieve()
+                    .toEntity(JsonNode.class);
+            updateCookies(account, uri, response.getHeaders());
+            return response.getBody();
+        } catch (RestClientResponseException exception) {
+            updateCookies(account, uri, exception.getResponseHeaders());
+            throw exception;
+        }
+    }
+
+    private void updateCookies(WeiboAccount account, URI uri, HttpHeaders responseHeaders) {
+        try {
+            if (responseHeaders != null
+                    && cookieStore.applyResponse(account, uri, responseHeaders.get(HttpHeaders.SET_COOKIE))) {
+                cookieRepository.save(account);
+            }
+        } catch (RuntimeException exception) {
+            throw new WeiboCookieUpdateException("微博Cookie状态保存失败", exception);
+        }
     }
 }

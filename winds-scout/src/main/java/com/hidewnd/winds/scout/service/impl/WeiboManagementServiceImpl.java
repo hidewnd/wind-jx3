@@ -15,6 +15,7 @@ import com.hidewnd.winds.scout.service.WeiboManagementService;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -28,14 +29,17 @@ public class WeiboManagementServiceImpl implements WeiboManagementService {
 
     private final WeiboBloggerRepository bloggerRepository;
     private final WeiboAccountRepository accountRepository;
+    private final WeiboCookieStore cookieStore;
     private final Clock clock;
 
     public WeiboManagementServiceImpl(
             WeiboBloggerRepository bloggerRepository,
             WeiboAccountRepository accountRepository,
+            WeiboCookieStore cookieStore,
             Clock clock) {
         this.bloggerRepository = bloggerRepository;
         this.accountRepository = accountRepository;
+        this.cookieStore = cookieStore;
         this.clock = clock;
     }
 
@@ -106,8 +110,9 @@ public class WeiboManagementServiceImpl implements WeiboManagementService {
         String id = request.id();
         Instant now = clock.instant();
         WeiboAccount account = new WeiboAccount(
-                id, request.cookie(), extractXsrfToken(request.cookie()), "active", 0, 0,
+                id, request.cookie(), "", "active", 0, 0,
                 null, "", null, null, now, now);
+        replaceCredentials(account, request.cookie());
         try {
             return AccountResponse.from(accountRepository.insert(account));
         } catch (DuplicateKeyException exception) {
@@ -118,8 +123,7 @@ public class WeiboManagementServiceImpl implements WeiboManagementService {
     @Override
     public AccountResponse updateCredentials(String id, AccountCredentialsRequest request) {
         WeiboAccount account = requireAccount(id);
-        account.setCookie(request.cookie());
-        account.setXsrfToken(extractXsrfToken(request.cookie()));
+        replaceCredentials(account, request.cookie());
         account.setStatus("active");
         account.setFailCount(0);
         account.setLastErrorAt(null);
@@ -154,14 +158,11 @@ public class WeiboManagementServiceImpl implements WeiboManagementService {
                 .orElseThrow(() -> new ScoutApiException(HttpStatus.NOT_FOUND, "微博账号不存在"));
     }
 
-    private String extractXsrfToken(String cookie) {
-        for (String item : cookie.split(";")) {
-            String[] pair = item.trim().split("=", 2);
-            if (pair.length == 2 && "XSRF-TOKEN".equals(pair[0]) && !pair[1].isBlank()) {
-                return pair[1].trim();
-            }
+    private void replaceCredentials(WeiboAccount account, String cookie) {
+        cookieStore.replaceSeed(account, cookie);
+        if (!StringUtils.hasText(account.getXsrfToken())) {
+            throw new ScoutApiException(HttpStatus.BAD_REQUEST, "Cookie中缺少有效的XSRF-TOKEN");
         }
-        throw new ScoutApiException(HttpStatus.BAD_REQUEST, "Cookie中缺少有效的XSRF-TOKEN");
     }
 
 }

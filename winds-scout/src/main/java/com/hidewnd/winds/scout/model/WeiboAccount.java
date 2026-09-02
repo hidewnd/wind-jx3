@@ -9,6 +9,7 @@ import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.Field;
 
 import java.time.Instant;
+import java.util.List;
 
 /**
  * 微博抓取账号及其运行状态的 MongoDB 实体。
@@ -54,6 +55,25 @@ public class WeiboAccount {
     @Field("updated_at")
     @Schema(description = "更新时间")
     private Instant updatedAt;
+    @Schema(description = "按域、路径和有效期维护的完整 Cookie 状态", accessMode = Schema.AccessMode.WRITE_ONLY)
+    private List<WeiboCookie> cookies;
+
+    public WeiboAccount(
+            String id,
+            String cookie,
+            String xsrfToken,
+            String status,
+            int failCount,
+            long requestCount,
+            Instant lastErrorAt,
+            String lastErrorMessage,
+            Instant lastUsedAt,
+            Instant recoverAt,
+            Instant createdAt,
+            Instant updatedAt) {
+        this(id, cookie, xsrfToken, status, failCount, requestCount, lastErrorAt, lastErrorMessage,
+                lastUsedAt, recoverAt, createdAt, updatedAt, null);
+    }
 
     public WeiboAccount(String id, String cookie, String xsrfToken) {
         this.id = id;

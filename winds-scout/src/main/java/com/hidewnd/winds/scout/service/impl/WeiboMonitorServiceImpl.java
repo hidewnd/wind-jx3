@@ -1,6 +1,7 @@
 package com.hidewnd.winds.scout.service.impl;
 
 import com.hidewnd.winds.scout.event.WeiboUpdatedEvent;
+import com.hidewnd.winds.scout.exception.WeiboCookieUpdateException;
 import com.hidewnd.winds.scout.model.WeiboAccount;
 import com.hidewnd.winds.scout.model.WeiboBlogger;
 import com.hidewnd.winds.scout.model.WeiboPost;
@@ -103,6 +104,10 @@ public class WeiboMonitorServiceImpl implements WeiboMonitorService {
         try {
             latest = fetchService.fetchLatest(
                     blogger.getUid(), blogger.getScreenName(), account);
+        } catch (WeiboCookieUpdateException exception) {
+            log.warn("微博Cookie状态更新失败，uid={}，accountId={}",
+                    blogger.getUid(), account.getId(), exception);
+            return;
         } catch (Exception exception) {
             accountPool.recordFailure(account.getId(), exception);
             log.warn("微博请求失败，uid={}", blogger.getUid(), exception);
