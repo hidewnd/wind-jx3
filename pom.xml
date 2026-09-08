@@ -18,6 +18,7 @@
         <module>winds-ws</module>
         <module>winds-application</module>
         <module>winds-scout</module>
+        <module>winds-jx3</module>
     </modules>
 
 

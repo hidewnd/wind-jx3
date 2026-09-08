@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.hidewnd.winds.bot.huangli.event.HuangliUpdatedEvent;
 import com.hidewnd.winds.scout.event.WeiboUpdatedEvent;
+import com.hidewnd.winds.jx3.Jx3Event;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
@@ -86,6 +87,19 @@ public class WindsWebSocketHandler extends TextWebSocketHandler {
         int sent = sendToSessions(message);
         log.info("WebSocket微博广播完成，weiboId={}，在线连接数={}，成功发送数={}",
                 event.post().weiboId(), online, sent);
+    }
+
+    @EventListener
+    @Async
+    public void broadcast(Jx3Event event) {
+        TextMessage message;
+        try {
+            message = new TextMessage(objectMapper.writeValueAsString(event));
+        } catch (JsonProcessingException exception) {
+            throw new IllegalStateException("剑三消息序列化失败", exception);
+        }
+        int sent = sendToSessions(message);
+        log.info("WebSocket剑三广播完成，类型={}，事件={}，成功发送数={}", event.type(), event.eventId(), sent);
     }
 
     private int sendToSessions(TextMessage message) {

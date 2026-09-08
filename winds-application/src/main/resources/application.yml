@@ -34,3 +34,12 @@ springdoc:
         - com.hidewnd.winds.aggregation.controller
         - com.hidewnd.winds.bot.huangli.controller
         - com.hidewnd.winds.scout.controller
+
+# 单实例官方数据监听；只向在线 WebSocket 客户端广播。
+winds:
+  jx3:
+    enabled: true
+    news-interval: 120s
+    maintenance-interval: 120s
+    server-interval: 30s
+    patch-interval: 30s

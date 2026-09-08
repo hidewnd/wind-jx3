@@ -18,6 +18,11 @@
     </properties>
 
     <dependencies>
+        <dependency>
+            <groupId>com.hidewnd</groupId>
+            <artifactId>winds-jx3</artifactId>
+            <version>${winds.version}</version>
+        </dependency>
 
         <dependency>
             <groupId>org.springframework.boot</groupId>
