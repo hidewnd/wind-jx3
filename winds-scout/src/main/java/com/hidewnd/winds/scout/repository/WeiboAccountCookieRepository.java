@@ -30,7 +30,8 @@ public class WeiboAccountCookieRepository {
                 .set("cookie", account.getCookie())
                 .set("xsrf_token", account.getXsrfToken())
                 .set("cookies", account.getCookies())
-                .set("updated_at", account.getUpdatedAt());
+                // 使用实体属性名，让 Mongo 字段转换器同时处理时间格式与字段映射。
+                .set("updatedAt", account.getUpdatedAt());
         UpdateResult result = mongoTemplate.updateFirst(
                 Query.query(Criteria.where("_id").is(account.getId())), update, WeiboAccount.class);
         if (result.getMatchedCount() == 0) {

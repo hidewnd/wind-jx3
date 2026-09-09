@@ -66,7 +66,7 @@ public class WeiboManagementController {
         return R.successByObj(subscriptions.listBloggers(token));
     }
 
-    @Operation(summary = "订阅微博博主", description = "传UID或仅传screenName全称；重复订阅幂等，共享名称和别称仅首次建档时写入")
+    @Operation(summary = "订阅微博博主", description = "传UID或仅传screenName全称；查询官方名称、头像及最新推文，先将推文作为不推送的基线落库，再保存并返回博主；无有效推文仍可订阅，重复订阅刷新资料及基线，别称仅首次建档时写入")
     @PostMapping("/bloggers")
     public R<BloggerResponse> createBlogger(
             @Parameter(hidden = true) @RequestAttribute(ScoutManagementInterceptor.TOKEN_ATTRIBUTE) String token,

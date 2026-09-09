@@ -1,10 +1,12 @@
 package com.hidewnd.winds.scout.model;
 
+import com.hidewnd.winds.scout.config.ScoutMongoTimeConverter;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.Id;
+import org.springframework.data.convert.ValueConverter;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.Field;
 
@@ -38,21 +40,26 @@ public class WeiboAccount {
     @Schema(description = "累计请求次数")
     private long requestCount;
     @Field("last_error_at")
+    @ValueConverter(ScoutMongoTimeConverter.class)
     @Schema(description = "最近失败时间")
     private Instant lastErrorAt;
     @Field("last_error_message")
     @Schema(description = "最近错误类型", accessMode = Schema.AccessMode.READ_ONLY)
     private String lastErrorMessage;
     @Field("last_used_at")
+    @ValueConverter(ScoutMongoTimeConverter.class)
     @Schema(description = "最近使用时间")
     private Instant lastUsedAt;
     @Field("recover_at")
+    @ValueConverter(ScoutMongoTimeConverter.class)
     @Schema(description = "自动恢复时间，空值表示不自动恢复")
     private Instant recoverAt;
     @Field("created_at")
+    @ValueConverter(ScoutMongoTimeConverter.class)
     @Schema(description = "创建时间")
     private Instant createdAt;
     @Field("updated_at")
+    @ValueConverter(ScoutMongoTimeConverter.class)
     @Schema(description = "更新时间")
     private Instant updatedAt;
     @Schema(description = "按域、路径和有效期维护的完整 Cookie 状态", accessMode = Schema.AccessMode.WRITE_ONLY)

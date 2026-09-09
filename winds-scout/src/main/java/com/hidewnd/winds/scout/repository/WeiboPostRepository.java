@@ -1,5 +1,6 @@
 package com.hidewnd.winds.scout.repository;
 
+import com.hidewnd.winds.scout.config.ScoutMongoTimeConverter;
 import com.hidewnd.winds.scout.model.WeiboPost;
 import com.mongodb.client.result.UpdateResult;
 import org.bson.Document;
@@ -99,7 +100,7 @@ public class WeiboPostRepository {
                 .setOnInsert("uid", post.uid())
                 .setOnInsert("no_push", noPush)
                 .setOnInsert("sent_bots", new ArrayList<>())
-                .setOnInsert("created_at", Instant.now());
+                .setOnInsert("created_at", ScoutMongoTimeConverter.FORMATTER.format(Instant.now()));
         if (post.retweet() != null) {
             update.set("is_retweet", true)
                     .set("retweet_title", post.retweet().screenName())
@@ -140,15 +141,17 @@ public class WeiboPostRepository {
      * @return 成功持有租约时返回 true
      */
     public boolean tryAcquirePollLease(String owner, Instant now) {
+        // 固定宽度的北京时间字符串可按字典序比较，查询与写入必须使用同一格式。
+        String currentTime = ScoutMongoTimeConverter.FORMATTER.format(now);
         Criteria available = new Criteria().orOperator(
                 Criteria.where("owner").is(owner),
-                Criteria.where("lease_until").lte(now),
+                Criteria.where("lease_until").lte(currentTime),
                 Criteria.where("lease_until").exists(false));
         Query query = Query.query(Criteria.where("_id").is(POLL_LOCK_ID).andOperator(available));
         Update update = new Update()
                 .set("owner", owner)
-                .set("lease_until", now.plus(POLL_LEASE))
-                .set("updated_at", now)
+                .set("lease_until", ScoutMongoTimeConverter.FORMATTER.format(now.plus(POLL_LEASE)))
+                .set("updated_at", currentTime)
                 .setOnInsert("_id", POLL_LOCK_ID);
         try {
             Document lock = mongoTemplate.findAndModify(
