@@ -5,7 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.hidewnd.winds.bot.huangli.event.HuangliUpdatedEvent;
 import com.hidewnd.winds.scout.event.WeiboUpdatedEvent;
-import com.hidewnd.winds.jx3.Jx3Event;
+import com.hidewnd.winds.jx3.event.Jx3Event;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
