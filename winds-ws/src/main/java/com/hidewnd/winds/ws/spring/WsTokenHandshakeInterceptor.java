@@ -16,6 +16,9 @@ import java.util.Map;
 @Component
 public class WsTokenHandshakeInterceptor implements HandshakeInterceptor {
 
+    /** 仅保存在服务端会话中，供管理事件发送前重新鉴权。 */
+    static final String TOKEN_ATTRIBUTE = "wsToken";
+
     private final WsTokenAuthenticator authenticator;
 
     public WsTokenHandshakeInterceptor(WsTokenAuthenticator authenticator) {
@@ -36,6 +39,7 @@ public class WsTokenHandshakeInterceptor implements HandshakeInterceptor {
             token = bearerToken(request.getHeaders().getFirst(HttpHeaders.AUTHORIZATION));
         }
         if (authenticator.isAuthorized(token)) {
+            attributes.put(TOKEN_ATTRIBUTE, token);
             return true;
         }
         response.setStatusCode(HttpStatus.UNAUTHORIZED);

@@ -1,8 +1,11 @@
 package com.hidewnd.winds.scout.service.impl;
 
+import com.hidewnd.winds.scout.event.WeiboAccountInvalidEvent;
+import com.hidewnd.winds.scout.exception.WeiboAccountInvalidException;
 import com.hidewnd.winds.scout.model.WeiboAccount;
 import com.hidewnd.winds.scout.repository.WeiboAccountRepository;
 import com.hidewnd.winds.scout.service.WeiboAccountPoolService;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
@@ -21,10 +24,13 @@ public class WeiboAccountPoolServiceImpl implements WeiboAccountPoolService {
 
     private final WeiboAccountRepository repository;
     private final Clock clock;
+    private final ApplicationEventPublisher eventPublisher;
 
-    public WeiboAccountPoolServiceImpl(WeiboAccountRepository repository, Clock clock) {
+    public WeiboAccountPoolServiceImpl(
+            WeiboAccountRepository repository, Clock clock, ApplicationEventPublisher eventPublisher) {
         this.repository = repository;
         this.clock = clock;
+        this.eventPublisher = eventPublisher;
     }
 
     @Override
@@ -59,18 +65,27 @@ public class WeiboAccountPoolServiceImpl implements WeiboAccountPoolService {
     public void recordFailure(String accountId, Exception exception) {
         repository.findById(accountId).ifPresent(account -> {
             Instant now = clock.instant();
+            boolean invalid = exception instanceof WeiboAccountInvalidException;
+            // 已确认失效的账号不再退避恢复，也不因重复失败反复告警。
+            if ("fail".equals(account.getStatus()) && account.getRecoverAt() == null
+                    && WeiboAccountInvalidException.class.getSimpleName().equals(account.getLastErrorMessage())) {
+                return;
+            }
             int failCount = account.getFailCount() + 1;
             account.setStatus("fail");
             account.setFailCount(failCount);
             account.setLastErrorAt(now);
             account.setLastErrorMessage(exception.getClass().getSimpleName());
-            account.setRecoverAt(switch (failCount) {
+            account.setRecoverAt(invalid ? null : switch (failCount) {
                 case 1 -> now.plus(Duration.ofHours(1));
                 case 2 -> now.plus(Duration.ofHours(3));
                 default -> null;
             });
             account.setUpdatedAt(now);
             repository.save(account);
+            if (invalid) {
+                eventPublisher.publishEvent(new WeiboAccountInvalidEvent(accountId, now));
+            }
         });
     }
 

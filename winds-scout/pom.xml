@@ -18,6 +18,12 @@
     </properties>
 
     <dependencies>
+        <!-- 与 winds-jx3 使用同一版本，解析正文 HTML、实体和媒体属性。 -->
+        <dependency>
+            <groupId>org.jsoup</groupId>
+            <artifactId>jsoup</artifactId>
+            <version>1.17.2</version>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>

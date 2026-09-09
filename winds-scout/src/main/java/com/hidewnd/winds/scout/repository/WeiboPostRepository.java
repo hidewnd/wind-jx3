@@ -62,6 +62,10 @@ public class WeiboPostRepository {
                 .set("imgs", post.images())
                 .set("topics", post.topics())
                 .set("video_cover_imgs", post.videoCoverImages())
+                .set("media", post.media())
+                .set("links", post.links())
+                .set("article", post.article())
+                .set("truncated", post.truncated())
                 .set("date", post.publishedAt())
                 .set("url", post.url())
                 .setOnInsert("uid", post.uid())
@@ -79,7 +83,8 @@ public class WeiboPostRepository {
                     .set("retweet_comments_count", post.retweet().commentsCount())
                     .set("retweet_attitudes_count", post.retweet().attitudesCount())
                     .set("retweet_imgs", post.retweet().images())
-                    .set("retweet_video_cover_imgs", post.retweet().videoCoverImages());
+                    .set("retweet_video_cover_imgs", post.retweet().videoCoverImages())
+                    .set("retweet", post.retweet());
         } else {
             update.unset("is_retweet")
                     .unset("retweet_title")
@@ -91,7 +96,8 @@ public class WeiboPostRepository {
                     .unset("retweet_comments_count")
                     .unset("retweet_attitudes_count")
                     .unset("retweet_imgs")
-                    .unset("retweet_video_cover_imgs");
+                    .unset("retweet_video_cover_imgs")
+                    .unset("retweet");
         }
         UpdateResult result = mongoTemplate.upsert(
                 Query.query(Criteria.where("_id").is(post.weiboId())), update, COLLECTION);

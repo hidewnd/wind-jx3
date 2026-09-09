@@ -5,6 +5,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.hidewnd.winds.bot.huangli.event.HuangliUpdatedEvent;
 import com.hidewnd.winds.scout.event.WeiboUpdatedEvent;
+import com.hidewnd.winds.scout.event.WeiboAccountInvalidEvent;
+import com.hidewnd.winds.scout.config.ScoutAuthorization;
+import com.hidewnd.winds.scout.config.ScoutManagementTokenAuthenticator;
 import com.hidewnd.winds.jx3.event.Jx3Event;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.event.EventListener;
@@ -28,10 +31,13 @@ public class WindsWebSocketHandler extends TextWebSocketHandler {
             "{\"type\":\"connection.success\",\"message\":\"连接成功\"}");
 
     private final ObjectMapper objectMapper;
+    private final ScoutManagementTokenAuthenticator managementAuthenticator;
     private final Map<String, WebSocketSession> sessions = new ConcurrentHashMap<>();
 
-    public WindsWebSocketHandler(ObjectMapper objectMapper) {
+    public WindsWebSocketHandler(ObjectMapper objectMapper,
+                                 ScoutManagementTokenAuthenticator managementAuthenticator) {
         this.objectMapper = objectMapper;
+        this.managementAuthenticator = managementAuthenticator;
     }
 
     @Override
@@ -100,6 +106,51 @@ public class WindsWebSocketHandler extends TextWebSocketHandler {
         }
         int sent = sendToSessions(message);
         log.info("WebSocket剑三广播完成，类型={}，事件={}，成功发送数={}", event.type(), event.eventId(), sent);
+    }
+
+    /**
+     * 账号失效告警只发送给当前仍有管理权限的在线连接，不缓存握手时的权限快照。
+     */
+    @EventListener
+    @Async
+    public void broadcast(WeiboAccountInvalidEvent event) {
+        ObjectNode payload = objectMapper.valueToTree(event);
+        payload.put("type", "weibo.account.invalid")
+                .put("level", "warning")
+                .put("message", "微博监听账号已失效，已停止使用，请更新Cookie")
+                .put("status", "fail")
+                .putNull("recoverAt");
+        TextMessage message;
+        try {
+            message = new TextMessage(objectMapper.writeValueAsString(payload));
+        } catch (JsonProcessingException exception) {
+            throw new IllegalStateException("微博账号失效告警序列化失败", exception);
+        }
+        int sent = 0;
+        for (Map.Entry<String, WebSocketSession> entry : sessions.entrySet()) {
+            WebSocketSession session = entry.getValue();
+            if (!session.isOpen()) {
+                sessions.remove(entry.getKey());
+                continue;
+            }
+            Object token = session.getAttributes().get(WsTokenHandshakeInterceptor.TOKEN_ATTRIBUTE);
+            if (!(token instanceof String tokenValue)) {
+                continue;
+            }
+            ScoutAuthorization authorization;
+            try {
+                authorization = managementAuthenticator.authorize(tokenValue);
+            } catch (RuntimeException exception) {
+                // 数据库故障时拒绝发送；不输出可能包含 token 查询条件的异常详情。
+                log.error("微博管理告警鉴权失败，sessionId={}，异常类型={}",
+                        entry.getKey(), exception.getClass().getSimpleName());
+                continue;
+            }
+            if (authorization == ScoutAuthorization.AUTHORIZED && send(entry.getKey(), session, message)) {
+                sent++;
+            }
+        }
+        log.info("WebSocket微博账号失效告警完成，accountId={}，成功发送数={}", event.accountId(), sent);
     }
 
     private int sendToSessions(TextMessage message) {
