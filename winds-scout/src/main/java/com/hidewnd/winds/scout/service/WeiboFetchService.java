@@ -10,6 +10,9 @@ import java.util.Optional;
  */
 public interface WeiboFetchService {
 
+    /** 使用微博用户搜索精确匹配全称并返回 UID；无匹配返回空，歧义明确报错。 */
+    Optional<String> findUidByScreenName(String screenName, WeiboAccount account);
+
     /**
      * 使用指定抓取账号查询博主最新一条非置顶微博，并补全长文本内容。
      *

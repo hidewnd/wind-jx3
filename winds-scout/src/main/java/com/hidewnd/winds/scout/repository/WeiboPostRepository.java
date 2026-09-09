@@ -9,11 +9,13 @@ import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.Update;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Repository;
 
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Optional;
 
 /**
  * 微博内容和分布式轮询租约的 MongoDB 访问组件。
@@ -40,6 +42,32 @@ public class WeiboPostRepository {
      */
     public boolean hasPosts(String uid) {
         return mongoTemplate.exists(Query.query(Criteria.where("uid").is(uid)), COLLECTION);
+    }
+
+    /** 按发布时间读取最新监听记录，字段映射复用 WeiboPost 的 Mongo 注解。 */
+    public Optional<WeiboPost> findLatest(String uid) {
+        Query query = Query.query(Criteria.where("uid").is(uid))
+                .with(Sort.by(Sort.Order.desc("date"), Sort.Order.desc("_id"))).limit(1);
+        Document document = mongoTemplate.findOne(query, Document.class, COLLECTION);
+        if (document == null) {
+            return Optional.empty();
+        }
+        // 旧记录只有平铺转发字段，读取时恢复结构，不批量改写历史文档。
+        if (document.get("retweet") == null && Boolean.TRUE.equals(document.getBoolean("is_retweet"))) {
+            Document retweet = new Document();
+            String[][] fields = {{"title", "screenName"}, {"content", "content"}, {"raw_content", "rawContent"},
+                    {"source", "source"}, {"region_name", "regionName"}, {"reposts_count", "repostsCount"},
+                    {"comments_count", "commentsCount"}, {"attitudes_count", "attitudesCount"},
+                    {"imgs", "images"}, {"video_cover_imgs", "videoCoverImages"}};
+            for (String[] field : fields) {
+                retweet.put(field[1], document.get("retweet_" + field[0]));
+            }
+            retweet.put("truncated", false);
+            retweet.put("unavailable", false);
+            document.put("retweet", retweet);
+        }
+        document.putIfAbsent("truncated", false);
+        return Optional.of(mongoTemplate.getConverter().read(WeiboPost.class, document));
     }
 
     /**

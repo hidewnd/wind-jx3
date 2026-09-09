@@ -7,16 +7,21 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
+import org.springframework.web.method.HandlerMethod;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
 /**
- * Scout 管理接口鉴权拦截器，校验 Bearer Token 并返回统一的 401 或 403 响应。
+ * 校验微博接口 Token，账号池操作额外校验管理权限。
  */
 @Component
+@Slf4j
 public class ScoutManagementInterceptor implements HandlerInterceptor {
+
+    public static final String TOKEN_ATTRIBUTE = "scoutToken";
 
     private final ScoutManagementTokenAuthenticator authenticator;
     private final ObjectMapper objectMapper;
@@ -34,8 +39,19 @@ public class ScoutManagementInterceptor implements HandlerInterceptor {
         String token = authorizationHeader != null && authorizationHeader.startsWith("Bearer ")
                 ? authorizationHeader.substring("Bearer ".length()).trim()
                 : null;
-        ScoutAuthorization authorization = authenticator.authorize(token);
-        if (authorization == ScoutAuthorization.AUTHORIZED) {
+        ScoutAuthorization authorization;
+        try {
+            authorization = authenticator.authorize(token);
+        } catch (RuntimeException exception) {
+            log.error("微博接口鉴权失败，异常类型={}", exception.getClass().getSimpleName());
+            writeError(response, HttpServletResponse.SC_SERVICE_UNAVAILABLE, "鉴权服务暂不可用");
+            return false;
+        }
+        boolean managementOnly = handler instanceof HandlerMethod method
+                && method.hasMethodAnnotation(WeiboAccountManagement.class);
+        if (authorization == ScoutAuthorization.AUTHORIZED
+                || authorization == ScoutAuthorization.FORBIDDEN && !managementOnly) {
+            request.setAttribute(TOKEN_ATTRIBUTE, token);
             return true;
         }
         if (authorization == ScoutAuthorization.FORBIDDEN) {

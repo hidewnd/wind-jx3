@@ -17,8 +17,6 @@ public record BloggerResponse(
         String screenName,
         @Schema(description = "博主别称")
         List<String> aliases,
-        @Schema(description = "是否启用监控")
-        boolean enabled,
         @Schema(description = "创建时间，格式为 yyyy-MM-dd HH:mm:ss")
         Instant createdAt,
         @Schema(description = "更新时间，格式为 yyyy-MM-dd HH:mm:ss")
@@ -35,7 +33,6 @@ public record BloggerResponse(
                 blogger.getUid(),
                 blogger.getScreenName(),
                 blogger.getAliases() == null ? List.of() : List.copyOf(blogger.getAliases()),
-                blogger.getEnabled() == null || blogger.getEnabled(),
                 blogger.getCreatedAt(),
                 blogger.getUpdatedAt());
     }

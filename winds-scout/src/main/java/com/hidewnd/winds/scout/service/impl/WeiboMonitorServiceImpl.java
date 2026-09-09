@@ -69,8 +69,8 @@ public class WeiboMonitorServiceImpl implements WeiboMonitorService {
         if (activeSince == null) {
             activeSince = LocalDateTime.ofInstant(clock.instant(), clock.getZone());
         }
-        List<WeiboBlogger> bloggers = bloggerRepository.findByEnabledNot(false);
-        log.info("微博监听轮询已获得租约，启用博主数={}", bloggers.size());
+        List<WeiboBlogger> bloggers = bloggerRepository.findSubscribed();
+        log.info("微博监听轮询已获得租约，订阅博主数={}", bloggers.size());
         for (int index = 0; index < bloggers.size(); index++) {
             if (index > 0) {
                 pauseBetweenRequests();
@@ -86,7 +86,7 @@ public class WeiboMonitorServiceImpl implements WeiboMonitorService {
                 log.warn("微博轮询处理失败，uid={}", blogger.getUid(), exception);
             }
         }
-        log.info("微博监听轮询完成，启用博主数={}", bloggers.size());
+        log.info("微博监听轮询完成，订阅博主数={}", bloggers.size());
     }
 
     private void process(WeiboBlogger blogger) {

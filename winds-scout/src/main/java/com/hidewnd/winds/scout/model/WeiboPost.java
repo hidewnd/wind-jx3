@@ -1,6 +1,8 @@
 package com.hidewnd.winds.scout.model;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.mapping.Field;
 
 import java.util.List;
 
@@ -12,32 +14,42 @@ public record WeiboPost(
         @Schema(description = "微博 UID")
         String uid,
         @Schema(description = "博主显示名称")
+        @Field("title")
         String screenName,
         @Schema(description = "微博 ID")
+        @Id
         String weiboId,
         @Schema(description = "发布时间，格式为 yyyy-MM-dd HH:mm:ss")
+        @Field("date")
         String publishedAt,
         @Schema(description = "移除 HTML 并保留段落、换行和有效空白的纯文本正文")
         String content,
         @Schema(description = "微博接口返回的原始正文 HTML，属于不可信外部内容", nullable = true)
+        @Field("raw_content")
         String rawContent,
         @Schema(description = "发布来源", nullable = true)
         String source,
         @Schema(description = "发布地区", nullable = true)
+        @Field("region_name")
         String regionName,
         @Schema(description = "转发数", nullable = true)
+        @Field("reposts_count")
         Long repostsCount,
         @Schema(description = "评论数", nullable = true)
+        @Field("comments_count")
         Long commentsCount,
         @Schema(description = "点赞数", nullable = true)
+        @Field("attitudes_count")
         Long attitudesCount,
         @Schema(description = "不含查询参数的微博详情地址")
         String url,
         @Schema(description = "正文图片及卡片、视频封面地址")
+        @Field("imgs")
         List<String> images,
         @Schema(description = "微博话题")
         List<String> topics,
         @Schema(description = "卡片和视频封面地址")
+        @Field("video_cover_imgs")
         List<String> videoCoverImages,
         @Schema(description = "转发微博内容，非转发微博为空")
         Retweet retweet,

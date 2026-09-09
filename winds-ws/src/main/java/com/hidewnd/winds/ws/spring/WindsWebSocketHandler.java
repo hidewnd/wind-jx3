@@ -8,6 +8,7 @@ import com.hidewnd.winds.scout.event.WeiboUpdatedEvent;
 import com.hidewnd.winds.scout.event.WeiboAccountInvalidEvent;
 import com.hidewnd.winds.scout.config.ScoutAuthorization;
 import com.hidewnd.winds.scout.config.ScoutManagementTokenAuthenticator;
+import com.hidewnd.winds.scout.service.WeiboSubscriptionService;
 import com.hidewnd.winds.jx3.event.Jx3Event;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.event.EventListener;
@@ -21,6 +22,8 @@ import org.springframework.web.socket.handler.TextWebSocketHandler;
 
 import java.io.IOException;
 import java.util.Map;
+import java.util.HashMap;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
@@ -32,12 +35,15 @@ public class WindsWebSocketHandler extends TextWebSocketHandler {
 
     private final ObjectMapper objectMapper;
     private final ScoutManagementTokenAuthenticator managementAuthenticator;
+    private final WeiboSubscriptionService subscriptions;
     private final Map<String, WebSocketSession> sessions = new ConcurrentHashMap<>();
 
     public WindsWebSocketHandler(ObjectMapper objectMapper,
-                                 ScoutManagementTokenAuthenticator managementAuthenticator) {
+                                 ScoutManagementTokenAuthenticator managementAuthenticator,
+                                 WeiboSubscriptionService subscriptions) {
         this.objectMapper = objectMapper;
         this.managementAuthenticator = managementAuthenticator;
+        this.subscriptions = subscriptions;
     }
 
     @Override
@@ -90,7 +96,45 @@ public class WindsWebSocketHandler extends TextWebSocketHandler {
             throw new IllegalStateException("微博更新消息序列化失败", exception);
         }
         int online = sessions.size();
-        int sent = sendToSessions(message);
+        if (online == 0) {
+            return;
+        }
+        Set<String> subscribedTokens;
+        try {
+            subscribedTokens = subscriptions.subscriberTokens(event.post().uid());
+        } catch (RuntimeException exception) {
+            log.error("微博订阅查询失败，uid={}，异常类型={}", event.post().uid(), exception.getClass().getSimpleName());
+            return;
+        }
+        int sent = 0;
+        // 每个事件重新读取订阅与有效性；同一 Token 多个连接仅查询一次鉴权，不保存长期权限快照。
+        Map<String, Boolean> authorizedTokens = new HashMap<>();
+        for (Map.Entry<String, WebSocketSession> entry : sessions.entrySet()) {
+            WebSocketSession session = entry.getValue();
+            if (!session.isOpen()) {
+                sessions.remove(entry.getKey());
+                continue;
+            }
+            Object token = session.getAttributes().get(WsTokenHandshakeInterceptor.TOKEN_ATTRIBUTE);
+            if (!(token instanceof String tokenValue) || !subscribedTokens.contains(tokenValue)) {
+                continue;
+            }
+            Boolean authorized = authorizedTokens.get(tokenValue);
+            if (authorized == null) {
+                try {
+                    ScoutAuthorization result = managementAuthenticator.authorize(tokenValue);
+                    authorized = result == ScoutAuthorization.AUTHORIZED || result == ScoutAuthorization.FORBIDDEN;
+                } catch (RuntimeException exception) {
+                    log.error("微博推文鉴权失败，sessionId={}，异常类型={}",
+                            entry.getKey(), exception.getClass().getSimpleName());
+                    authorized = false;
+                }
+                authorizedTokens.put(tokenValue, authorized);
+            }
+            if (authorized && send(entry.getKey(), session, message)) {
+                sent++;
+            }
+        }
         log.info("WebSocket微博广播完成，weiboId={}，在线连接数={}，成功发送数={}",
                 event.post().weiboId(), online, sent);
     }

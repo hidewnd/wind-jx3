@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.hidewnd.winds.scout.exception.WeiboCookieUpdateException;
 import com.hidewnd.winds.scout.exception.WeiboAccountInvalidException;
+import com.hidewnd.winds.scout.exception.ScoutApiException;
 import com.hidewnd.winds.scout.model.WeiboAccount;
 import com.hidewnd.winds.scout.model.WeiboPost;
 import com.hidewnd.winds.scout.repository.WeiboAccountCookieRepository;
@@ -11,14 +12,18 @@ import com.hidewnd.winds.scout.service.WeiboFetchService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
+import org.springframework.web.util.UriComponentsBuilder;
 
 import java.net.URI;
 import java.util.Optional;
+import java.util.LinkedHashSet;
+import java.util.Set;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -48,6 +53,40 @@ public class WeiboFetchServiceImpl implements WeiboFetchService {
         this.parser = parser;
         this.cookieStore = cookieStore;
         this.cookieRepository = cookieRepository;
+    }
+
+    @Override
+    public Optional<String> findUidByScreenName(String screenName, WeiboAccount account) {
+        if (screenName == null || screenName.isBlank()) {
+            throw new IllegalArgumentException("微博博主全称不能为空");
+        }
+        URI uri = UriComponentsBuilder.fromHttpUrl(API_URL)
+                .queryParam("containerid", "{container}").queryParam("page_type", "searchall")
+                .encode().buildAndExpand("100103type=3&q=" + screenName + "&t=0").toUri();
+        JsonNode response = getJson(uri, account, headers -> {
+            headers.set(HttpHeaders.ACCEPT, "application/json");
+            headers.set(HttpHeaders.REFERER, "https://m.weibo.cn/");
+            headers.set("x-requested-with", "XMLHttpRequest");
+        });
+        if (response == null || response.path("ok").asInt() != 1
+                || !response.path("data").path("cards").isArray()) {
+            throw new IllegalStateException("微博用户搜索响应异常");
+        }
+        Set<String> matches = new LinkedHashSet<>();
+        // 搜索结果可能把同一用户放在多个卡片中；只接受全称完全相等的用户，不猜测相似名称。
+        for (JsonNode user : response.path("data").path("cards").findValues("user")) {
+            if (screenName.equals(user.path("screen_name").asText())) {
+                String uid = user.path("id").asText("");
+                if (!uid.matches("\\d+")) {
+                    throw new IllegalStateException("微博用户搜索返回无效UID");
+                }
+                matches.add(uid);
+            }
+        }
+        if (matches.size() > 1) {
+            throw new ScoutApiException(HttpStatus.CONFLICT, "存在多个同名微博博主，请使用UID");
+        }
+        return matches.stream().findFirst();
     }
 
     @Override
