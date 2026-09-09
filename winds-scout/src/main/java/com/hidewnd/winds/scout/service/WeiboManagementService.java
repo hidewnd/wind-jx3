@@ -3,64 +3,13 @@ package com.hidewnd.winds.scout.service;
 import com.hidewnd.winds.scout.dto.AccountCreateRequest;
 import com.hidewnd.winds.scout.dto.AccountCredentialsRequest;
 import com.hidewnd.winds.scout.dto.AccountResponse;
-import com.hidewnd.winds.scout.dto.BloggerCreateRequest;
-import com.hidewnd.winds.scout.dto.BloggerResponse;
-import com.hidewnd.winds.scout.dto.BloggerUpdateRequest;
 
 import java.util.List;
 
 /**
- * 微博监控管理服务。
+ * 微博抓取账号管理服务。
  */
 public interface WeiboManagementService {
-
-    /**
-     * 查询全部监控博主。
-     *
-     * @return 博主列表
-     */
-    List<BloggerResponse> listBloggers();
-
-    /**
-     * 查询指定微博博主。
-     *
-     * @param uid 微博 UID
-     * @return 博主信息
-     */
-    BloggerResponse getBlogger(String uid);
-
-    /**
-     * 创建微博监控博主。
-     *
-     * @param request 博主创建参数
-     * @return 创建后的博主信息
-     */
-    BloggerResponse createBlogger(BloggerCreateRequest request);
-
-    /**
-     * 更新博主名称、别称及启用状态，不修改群组和轮询频率。
-     *
-     * @param uid     微博 UID
-     * @param request 博主更新参数
-     * @return 更新后的博主信息
-     */
-    BloggerResponse updateBlogger(String uid, BloggerUpdateRequest request);
-
-    /**
-     * 修改博主启用状态。
-     *
-     * @param uid     微博 UID
-     * @param enabled 是否启用监控
-     * @return 更新后的博主信息
-     */
-    BloggerResponse setBloggerStatus(String uid, boolean enabled);
-
-    /**
-     * 删除指定监控博主。
-     *
-     * @param uid 微博 UID
-     */
-    void deleteBlogger(String uid);
 
     /**
      * 查询全部微博抓取账号，不返回登录凭据。

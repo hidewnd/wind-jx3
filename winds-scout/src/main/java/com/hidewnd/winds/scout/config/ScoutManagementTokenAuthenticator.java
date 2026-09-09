@@ -39,8 +39,8 @@ public class ScoutManagementTokenAuthenticator {
         if (document == null) {
             return ScoutAuthorization.INVALID;
         }
-        List<?> scopes = document.getList("scopes", Object.class, List.of());
-        return scopes.stream().map(String::valueOf).anyMatch(REQUIRED_SCOPE::equals)
+        Object scopes = document.get("scopes");
+        return scopes instanceof List<?> values && values.contains(REQUIRED_SCOPE)
                 ? ScoutAuthorization.AUTHORIZED
                 : ScoutAuthorization.FORBIDDEN;
     }

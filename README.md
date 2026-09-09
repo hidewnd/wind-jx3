@@ -124,7 +124,7 @@ java -jar winds-application/target/winds-application.jar
 | 微博监控管理 | `/scout/weibo/**` |
 | WebSocket 推送 | `/ws` |
 
-完整的请求头、参数、响应模型与示例见 [接口参考文档](docs/api-reference.md)。微博监控的集合与运行机制见 [微博监控服务说明](docs/weibo-scout.md)。
+完整的 HTTP、WebSocket 接口、权限、字段与消息示例统一见 [接口参考文档](docs/api-reference.md)。
 
 ## WebSocket
 
@@ -134,18 +134,19 @@ WebSocket 与 HTTP 服务共用 `9002` 端口，连接地址为：
 ws://localhost:9002/ws?token=<WS_TOKEN>
 ```
 
-也可以在握手请求中使用 `Authorization: Bearer <WS_TOKEN>`。Token 必须对应 MongoDB `ws_auth_token` 集合中的有效记录；微博管理接口还要求 `scout.weibo.manage` 权限。
+也可以在握手请求中使用 `Authorization: Bearer <WS_TOKEN>`。Token 必须对应 MongoDB `ws_auth_token` 集合中的有效记录；微博账号池接口额外要求 `scout.weibo.manage` 权限，订阅和推文查询允许普通有效 Token 调用。
 
 服务端事件包括：
 
 - `connection.success`：连接建立成功。
 - `huangli.updated`：黄历图片更新。
-- `weibo.updated`：微博动态更新。
+- `weibo.updated`：仅推送当前 Token 已订阅博主的微博动态。
+- `weibo.account.invalid`：仅向当前有微博管理权限的连接推送账号失效预警。
 - `jx3.news.updated`、`jx3.maintenance.updated`、`jx3.server.changed`、`jx3.patch.updated`：剑三官方数据变化。
 
-剑三监听配置、数据来源、存储和四种消息协议见 [剑三官方监听说明](docs/jx3-monitor.md)。日期时间统一为北京时间 `yyyy-MM-dd HH:mm:ss`。
+微博和剑三事件的日期时间统一为北京时间 `yyyy-MM-dd HH:mm:ss`。
 
-事件字段与完整 JSON 示例见 [接口参考文档](docs/api-reference.md#7-websocket-接口)。
+事件字段与完整 JSON 示例见 [接口参考文档](docs/api-reference.md#5-websocket)。
 
 ## 测试
 

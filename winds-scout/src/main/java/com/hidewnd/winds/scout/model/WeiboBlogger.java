@@ -4,6 +4,8 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.Field;
@@ -43,4 +45,9 @@ public class WeiboBlogger {
     @Field("updated_at")
     @Schema(description = "更新时间")
     private Instant updatedAt;
+
+    @JsonIgnore
+    @ToString.Exclude
+    @Schema(hidden = true)
+    private List<String> tokens;
 }
