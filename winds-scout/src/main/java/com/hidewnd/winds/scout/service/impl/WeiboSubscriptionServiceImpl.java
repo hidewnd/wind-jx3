@@ -7,6 +7,7 @@ import com.hidewnd.winds.scout.exception.WeiboCookieUpdateException;
 import com.hidewnd.winds.scout.model.WeiboAccount;
 import com.hidewnd.winds.scout.model.WeiboBlogger;
 import com.hidewnd.winds.scout.model.WeiboPost;
+import com.hidewnd.winds.scout.model.WeiboUserProfile;
 import com.hidewnd.winds.scout.repository.WeiboBloggerRepository;
 import com.hidewnd.winds.scout.repository.WeiboPostRepository;
 import com.hidewnd.winds.scout.repository.WeiboSubscriptionRepository;
@@ -55,9 +56,9 @@ public class WeiboSubscriptionServiceImpl implements WeiboSubscriptionService {
     @Override
     public BloggerResponse subscribe(String token, BloggerCreateRequest request) {
         String uid = request.uid();
+        WeiboAccount account = pool.chooseAccount()
+                .orElseThrow(() -> new ScoutApiException(HttpStatus.SERVICE_UNAVAILABLE, "没有可用的微博账号"));
         if (uid == null) {
-            WeiboAccount account = pool.chooseAccount()
-                    .orElseThrow(() -> new ScoutApiException(HttpStatus.SERVICE_UNAVAILABLE, "没有可用的微博账号"));
             Optional<String> found;
             try {
                 found = fetch.findUidByScreenName(request.screenName(), account);
@@ -71,10 +72,38 @@ public class WeiboSubscriptionServiceImpl implements WeiboSubscriptionService {
                 pool.recordFailure(account.getId(), exception);
                 throw new ScoutApiException(HttpStatus.BAD_GATEWAY, "微博用户查询失败");
             }
-            pool.recordSuccess(account.getId());
-            uid = found.orElseThrow(() -> new ScoutApiException(HttpStatus.NOT_FOUND, "未找到全称匹配的微博博主，请使用UID"));
+            if (found.isEmpty()) {
+                pool.recordSuccess(account.getId());
+                throw new ScoutApiException(HttpStatus.NOT_FOUND, "未找到全称匹配的微博博主，请使用UID");
+            }
+            uid = found.get();
         }
-        return BloggerResponse.from(subscriptions.subscribe(uid, token, request.screenName(), request.aliases(), clock.instant()));
+        WeiboUserProfile profile;
+        try {
+            profile = fetch.fetchUserProfile(uid, account);
+        } catch (WeiboCookieUpdateException exception) {
+            throw exception;
+        } catch (RuntimeException exception) {
+            pool.recordFailure(account.getId(), exception);
+            throw new ScoutApiException(HttpStatus.BAD_GATEWAY, "微博博主资料查询失败");
+        }
+        Optional<WeiboPost> baseline;
+        try {
+            baseline = fetch.fetchLatest(uid, profile.screenName(), account);
+        } catch (WeiboCookieUpdateException exception) {
+            throw exception;
+        } catch (RuntimeException exception) {
+            pool.recordFailure(account.getId(), exception);
+            throw new ScoutApiException(HttpStatus.BAD_GATEWAY, "微博基线查询失败");
+        }
+        pool.recordSuccess(account.getId());
+        // 先保存不推送的基线，再让新订阅进入轮询；数据库故障不计入抓取账号失败。
+        // 无有效推文时不创建虚假基线，保留轮询首次抓取的既有处理。
+        if (baseline.isPresent()) {
+            posts.saveOrSync(baseline.get(), true);
+        }
+        return BloggerResponse.from(subscriptions.subscribe(uid, token, profile.screenName(), profile.avatar(),
+                request.aliases(), clock.instant()));
     }
 
     @Override

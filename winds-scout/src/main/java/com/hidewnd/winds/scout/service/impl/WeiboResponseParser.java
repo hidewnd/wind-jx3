@@ -234,9 +234,10 @@ public class WeiboResponseParser {
         addVideo(mblog.path("page_info"), values);
         Element body = htmlBody(rawContent(mblog));
         body.appendChildren(htmlBody(mblog.path("article").path("content").asText("")).childNodesCopy());
-        // 表情的 alt 属于正文，不能同时作为正文配图重复输出。
+        // 表情的 alt 属于正文；url-icon 标记链接装饰（如视频播放图标），均不属于实际配图。
         for (Element img : body.select("img")) {
-            if (img.attr("alt").matches("\\[[^\\]]+\\]") || img.hasClass("emoji") || img.hasClass("face")) {
+            if (img.attr("alt").matches("\\[[^\\]]+\\]") || img.hasClass("emoji") || img.hasClass("face")
+                    || img.closest(".url-icon") != null) {
                 continue;
             }
             String url = safeUrl(img.hasAttr("data-src") ? img.attr("data-src") : img.attr("src"));

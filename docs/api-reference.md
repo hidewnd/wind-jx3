@@ -143,7 +143,8 @@ Authorization: Bearer <TOKEN>
 | msg | string | 否 | 成功时为“请求成功” |
 | obj | object[] | 否 | 业务数组，无结果为 [] |
 | obj[].uid | string | 否 | 微博 UID |
-| obj[].screenName | string | 是 | 博主名称；未提供名称时可能为空字符串，旧记录可能为 null |
+| obj[].screenName | string | 是 | 官方博主名称；历史记录可能为空，重新订阅可刷新 |
+| obj[].avatar | string | 是 | 官方头像地址；历史记录可能为空，重新订阅可补全 |
 | obj[].aliases | string[] | 否 | 系统记录的别称，无别称为 [] |
 | obj[].createdAt | string | 是 | 创建时间，北京时间 yyyy-MM-dd HH:mm:ss；旧记录可能为 null |
 | obj[].updatedAt | string | 是 | 最近更新时间，格式同上 |
@@ -159,6 +160,7 @@ Authorization: Bearer <TOKEN>
     {
       "uid": "1761587065",
       "screenName": "剑网3",
+      "avatar": "https://example.com/avatar.jpg",
       "aliases": [
         "官博"
       ],
@@ -184,7 +186,7 @@ Authorization: Bearer <TOKEN>
 | Authorization | header | string | 是 | Bearer &lt;TOKEN&gt;；普通有效 Token |
 | Content-Type | header | string | 是 | application/json |
 | uid | body | string / null | 条件必填 | 纯数字 UID；与 screenName 至少填写一项。传 uid 时直接使用 UID；空字符串不合法 |
-| screenName | body | string / null | 条件必填 | 未传 uid 时必须为非空白的微博完整名称，用于上游精确匹配；传 uid 时仅用于首次建档 |
+| screenName | body | string / null | 条件必填 | 未传 uid 时必须为非空白的微博完整名称，用于上游精确匹配；传 uid 时忽略此字段，名称以官方资料为准 |
 | aliases | body | string[] / null | 否 | 首次建档保存的别称，省略或 null 时保存 [] |
 | aliases[] | body | string | 提供数组元素时 | 每个别称不能为 null 或空白 |
 
@@ -227,7 +229,8 @@ Content-Type: application/json
 | msg | string | 否 | 成功时为“请求成功” |
 | obj | object | 否 | 本接口业务对象 |
 | obj.uid | string | 否 | 微博 UID |
-| obj.screenName | string | 是 | 博主名称；未提供名称时可能为空字符串，旧记录可能为 null |
+| obj.screenName | string | 是 | 官方博主名称；订阅成功时非空，历史记录可能为空 |
+| obj.avatar | string | 是 | 官方头像地址；订阅成功时非空，历史记录可能为空 |
 | obj.aliases | string[] | 否 | 系统记录的别称，无别称为 [] |
 | obj.createdAt | string | 是 | 创建时间，北京时间 yyyy-MM-dd HH:mm:ss；旧记录可能为 null |
 | obj.updatedAt | string | 是 | 最近更新时间，格式同上 |
@@ -242,6 +245,7 @@ Content-Type: application/json
   "obj": {
     "uid": "1761587065",
     "screenName": "剑网3",
+    "avatar": "https://example.com/avatar.jpg",
     "aliases": [
       "官博"
     ],
@@ -251,7 +255,9 @@ Content-Type: application/json
 }
 ```
 
-**调用说明：** 重复订阅幂等；已有博主只增加当前 Token，不改公共名称和别称。名称只接受微博搜索返回的全称完全匹配，不选择相似结果；无匹配返回 404，同名不同 UID 返回 409，可改用 UID。名称查询上游失败返回 502，无可用账号返回 503。uid 与 screenName 同时提供时以 uid 定位，不调用名称搜索。
+**调用说明：** 重复订阅幂等；每次订阅先查询官方名称和头像，再原子追加当前 Token 并刷新资料，保留已有别称和其他订阅者。名称只接受微博搜索返回的全称完全匹配，不选择相似结果；无匹配返回 404，同名不同 UID 返回 409，可改用 UID。名称或资料查询上游失败返回 502，无可用账号返回 503；查询失败不写入订阅。uid 与 screenName 同时提供时以 uid 定位，不调用名称搜索。资料来自主页 userInfo，不要求博主已有推文。
+
+每次订阅（含重复订阅）会立即抓取最新一条有效的非置顶微博，先以 `no_push=true` 作为基线落库，再保存订阅关系并返回博主信息，不触发更新事件。已有推文只同步内容，不重置其推送标记。没有有效推文时仍可订阅，不创建占位记录，后续沿用轮询首次基线规则。基线抓取失败返回 502，基线落库失败返回 500，均不新增订阅关系；若基线已落库而订阅保存失败，保留该记录，重试可幂等同步。
 
 ### 2.3 查看已订阅博主详情
 
@@ -287,7 +293,8 @@ Authorization: Bearer <TOKEN>
 | msg | string | 否 | 成功时为“请求成功” |
 | obj | object | 否 | 本接口业务对象 |
 | obj.uid | string | 否 | 微博 UID |
-| obj.screenName | string | 是 | 博主名称；未提供名称时可能为空字符串，旧记录可能为 null |
+| obj.screenName | string | 是 | 官方博主名称；订阅成功时非空，历史记录可能为空 |
+| obj.avatar | string | 是 | 官方头像地址；订阅成功时非空，历史记录可能为空 |
 | obj.aliases | string[] | 否 | 系统记录的别称，无别称为 [] |
 | obj.createdAt | string | 是 | 创建时间，北京时间 yyyy-MM-dd HH:mm:ss；旧记录可能为 null |
 | obj.updatedAt | string | 是 | 最近更新时间，格式同上 |
@@ -302,6 +309,7 @@ Authorization: Bearer <TOKEN>
   "obj": {
     "uid": "1761587065",
     "screenName": "剑网3",
+    "avatar": "https://example.com/avatar.jpg",
     "aliases": [
       "官博"
     ],

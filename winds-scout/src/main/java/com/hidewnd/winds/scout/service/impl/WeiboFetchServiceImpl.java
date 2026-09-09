@@ -7,6 +7,7 @@ import com.hidewnd.winds.scout.exception.WeiboAccountInvalidException;
 import com.hidewnd.winds.scout.exception.ScoutApiException;
 import com.hidewnd.winds.scout.model.WeiboAccount;
 import com.hidewnd.winds.scout.model.WeiboPost;
+import com.hidewnd.winds.scout.model.WeiboUserProfile;
 import com.hidewnd.winds.scout.repository.WeiboAccountCookieRepository;
 import com.hidewnd.winds.scout.service.WeiboFetchService;
 import lombok.extern.slf4j.Slf4j;
@@ -53,6 +54,32 @@ public class WeiboFetchServiceImpl implements WeiboFetchService {
         this.parser = parser;
         this.cookieStore = cookieStore;
         this.cookieRepository = cookieRepository;
+    }
+
+    @Override
+    public WeiboUserProfile fetchUserProfile(String uid, WeiboAccount account) {
+        if (uid == null || !uid.matches("\\d+")) {
+            throw new IllegalArgumentException("微博UID仅支持数字");
+        }
+        // 不指定推文 containerid，读取主页 userInfo；空时间线不代表博主不存在。
+        JsonNode response = getJson(URI.create(API_URL + "?type=uid&value=" + uid), account, headers -> {
+            headers.set(HttpHeaders.ACCEPT, "application/json");
+            headers.set(HttpHeaders.REFERER, "https://m.weibo.cn/u/" + uid);
+            headers.set("x-requested-with", "XMLHttpRequest");
+        });
+        if (response == null || response.path("ok").asInt() != 1) {
+            throw new IllegalStateException("微博博主资料响应异常");
+        }
+        JsonNode user = response.path("data").path("userInfo");
+        String screenName = user.path("screen_name").asText("");
+        String avatar = user.path("avatar_hd").asText("");
+        if (avatar.isBlank()) {
+            avatar = user.path("profile_image_url").asText("");
+        }
+        if (!uid.equals(user.path("id").asText()) || screenName.isBlank() || avatar.isBlank()) {
+            throw new IllegalStateException("微博博主资料缺失或UID不匹配");
+        }
+        return new WeiboUserProfile(screenName, avatar);
     }
 
     @Override

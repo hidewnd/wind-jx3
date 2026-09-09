@@ -15,6 +15,8 @@ public record BloggerResponse(
         String uid,
         @Schema(description = "博主显示名称", example = "剑网3官方微博")
         String screenName,
+        @Schema(description = "博主头像地址；历史记录可能为空")
+        String avatar,
         @Schema(description = "博主别称")
         List<String> aliases,
         @Schema(description = "创建时间，格式为 yyyy-MM-dd HH:mm:ss")
@@ -32,6 +34,7 @@ public record BloggerResponse(
         return new BloggerResponse(
                 blogger.getUid(),
                 blogger.getScreenName(),
+                blogger.getAvatar(),
                 blogger.getAliases() == null ? List.of() : List.copyOf(blogger.getAliases()),
                 blogger.getCreatedAt(),
                 blogger.getUpdatedAt());

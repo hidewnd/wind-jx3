@@ -1,9 +1,11 @@
 package com.hidewnd.winds.scout.model;
 
+import com.hidewnd.winds.scout.config.ScoutMongoTimeConverter;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.springframework.data.convert.ValueConverter;
 import org.springframework.data.mongodb.core.mapping.Field;
 
 import java.time.Instant;
@@ -26,6 +28,7 @@ public class WeiboCookie {
     @Schema(description = "生效路径")
     private String path;
     @Field("expires_at")
+    @ValueConverter(ScoutMongoTimeConverter.class)
     @Schema(description = "绝对过期时间，空值表示会话期")
     private Instant expiresAt;
     @Field("host_only")

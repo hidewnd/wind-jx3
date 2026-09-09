@@ -15,7 +15,7 @@ import java.util.List;
 public record BloggerCreateRequest(
         @Schema(description = "微博 UID，仅支持数字", example = "1761587065")
         @Pattern(regexp = "\\d+", message = "UID仅支持数字") String uid,
-        @Schema(description = "博主全称；未传 UID 时用于微博用户查询，传 UID 时仅用于首次建档", example = "剑网3")
+        @Schema(description = "博主全称；未传 UID 时用于微博用户查询，传 UID 时忽略此字段，名称以官方资料为准", example = "剑网3")
         String screenName,
         @Schema(description = "博主别称", example = "[\"官博\"]")
         List<@NotBlank(message = "别称不能为空") String> aliases) {
