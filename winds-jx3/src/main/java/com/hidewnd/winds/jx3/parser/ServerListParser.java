@@ -36,6 +36,11 @@ public final class ServerListParser {
         List<GameServer> result = new ArrayList<>();
         for (var rows : groups.values()) {
             String[] row = rows.getFirst();
+            // 比赛专区的专用网关不参与正式服开关服监听，直接排除以避免无效探测和超时告警。
+            if (row[11].equals("比赛专区")
+                    && (row[10].equals("比赛专用服") || row[10].equals("练习专用服"))) {
+                continue;
+            }
             List<String> aliases =
                     rows.stream()
                             .map(r -> r[1])

@@ -1402,9 +1402,9 @@ Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=
 
 以下均为服务端主动消息，无对应的客户端请求参数。客户端无需发送订阅帧，微博订阅通过 HTTP 接口维护。订阅变更无需重连，影响后续推文分发；同一 Token 的多个在线连接均可收到消息。
 
-推送只覆盖当前服务实例在线连接，不提供离线补发、逐客户端确认或跨实例转发。微博首次监听只建立基线，服务重启不补发历史推文，同一推文 ID 不重复推送；剑三首次采集只建立基线，不补发停机期间变化。
+推送只覆盖当前服务实例在线连接，不提供离线补发、逐客户端确认或跨实例转发。微博首次监听只建立基线，服务重启不补发历史推文，同一推文 ID 不重复推送；剑三常规采集首次只建立基线，不补发停机期间变化。第三方连接收到的有效开服通知按 5.9 核验和去重，不受首次基线限制。
 
-剑三新闻和公告默认每轮完成后间隔 30 秒，区服探测间隔 10 秒，补丁间隔 30 秒；实际周期还包含本轮执行耗时。采集任务统一交给应用异步执行器，调度器只触发任务；同一来源不会重叠执行。区服按网关探测完成顺序处理，仍需连续两次明确结果确认变化。
+剑三新闻和公告默认每轮完成后间隔 30 秒，区服探测间隔 10 秒，补丁间隔 30 秒；实际周期还包含本轮执行耗时。采集任务统一交给应用异步执行器，调度器只触发任务；同一来源不会重叠执行。常规区服轮询按网关探测完成顺序处理，需连续两次明确结果确认变化；第三方开服通知会独立触发一次即时异步核验，规则见 5.9。
 
 ### 5.3 连接成功（connection.success）
 
@@ -1735,14 +1735,14 @@ Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=
 | occurredAt | string | 否 | 首次观察到变化的北京时间，不是官方发布时间 |
 | message | string | 否 | 可直接展示的纯文本，可能包含换行 |
 | data | object | 否 | 此类事件的业务载荷 |
-| data.zoneId | string | 否 | 大区 ID |
+| data.zoneId | string | 是 | 官方大区 ID；第三方通知无法匹配官方清单时为 null |
 | data.zoneName | string | 否 | 大区名称 |
 | data.serverName | string | 否 | 服务器名称 |
 | data.aliases | string[] | 否 | 同组其他服务器名称，无别名为 [] |
-| data.previousStatus | string | 否 | 变化前状态：reachable / unreachable |
+| data.previousStatus | string | 是 | 变化前状态：reachable / unreachable；尚无本地确认基线时为 null |
 | data.status | string | 否 | 变化后状态：reachable / unreachable |
-| data.detectedBy | string | 否 | 固定 tcp |
-| data.confirmedAt | string | 否 | 满足确认条件的北京时间，可能晚于 occurredAt |
+| data.detectedBy | string | 否 | tcp：本地探测确认；jx3api：本地无法核验，采用第三方开服通知 |
+| data.confirmedAt | string | 是 | 本地满足确认条件的北京时间；jx3api 兜底时为 null |
 
 #### 消息示例
 
@@ -1767,7 +1767,36 @@ Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=
 }
 ```
 
-**说明：** TCP 可达不保证玩家一定能进入游戏；超时不会直接作为关服消息。不可达文案为“[HH:mm:ss]服务器名暂时无法连接，可能维护中。”。开服事件需要先确认不可达，再连续两次探测可达；如果维护期间只有超时，或网关仍接受连接，当前 TCP 信号无法识别此次停开服。
+**说明：** TCP 可达不保证玩家一定能进入游戏；超时不会直接作为关服消息。不可达文案为“[HH:mm:ss]服务器名暂时无法连接，可能维护中。”。常规轮询开服事件需要先确认不可达，再连续两次探测可达。
+
+第三方 [JX3API 开服状态事件](https://www.jx3api.com/#/socket/2001) 作为延时补充：收到开服通知后立即异步核验对应主服或合服别名，一次 TCP 可达即发布开服消息，无需等待第二轮，也不要求已有维护基线；明确拒绝连接则不采信该开服通知。超时、网络异常或无法取得官方区服地址时，发布第三方通知，`detectedBy=jx3api`、`confirmedAt=null`。常规轮询后续仍可确认新的维护状态。开服时间随状态持久化，重复通知、后续轮询及重启后相同通知不重复发布；入库失败不广播。
+
+上游协议只有 `action=2001`、外层 `status=success` 和 `detail={zone,server,status,time}`，没有 message 字段。仅 `detail.status="1"` 触发开服核验，`"0"` 不替代本地维护判断；兜底消息由原始大区、服务器和事件时间生成，例如：
+
+```json
+{
+  "type": "jx3.server.changed",
+  "eventId": "f03d9e37-020b-40f6-81a6-0532474936b4",
+  "occurredAt": "2026-09-10 10:00:00",
+  "message": "[2026-09-10 10:00:00]电信区·梦江南开服啦！",
+  "data": {
+    "zoneId": "z05",
+    "zoneName": "电信区",
+    "serverName": "梦江南",
+    "aliases": ["枫泾古镇"],
+    "previousStatus": "unreachable",
+    "status": "reachable",
+    "detectedBy": "jx3api",
+    "confirmedAt": null
+  }
+}
+```
+
+无法匹配官方清单时，保留上游区服名称，`zoneId` 和 `previousStatus` 为 null、`aliases=[]`，不会伪造官方身份；此类记录暂存于 `jx3_records` 的 `server-unresolved:<zone>:<server>`，映射恢复时沿用其去重时间。
+
+应用配置 `winds.jx3.socket.enabled` 默认 true（还需 `winds.jx3.enabled=true`）；默认连接 `wss://socket.nicemoe.cn`，服务启动即连接、关闭时取消连接和心跳。`reconnect-interval` 默认 15s，兼作 Ping 周期，`heartbeat-timeout` 默认 45s；握手超时 10s。断线、握手失败或 Pong 超时后自动重连。连接地址可通过 `endpoint` 配置，必须为 WSS；不复用综合版 HTTP token。
+
+公开文档未标注时间戳单位，本客户端接受 Unix 秒或毫秒整数；只处理十分钟内且不超过本地时间未来一分钟的通知，避免重连历史消息误报。消息上限为 65,536 个字符，非法消息会记录日志并忽略。当前已验证公开端点的无认证握手和标准 Ping/Pong，真实开服报文的长期运行行为仍需部署观察。
 
 排查漏报时，以 `jx3_records` 中 `key=server:<zoneId>:<serverName>` 的修订和 `event` 判断是否产生事件，再按事件编号核对 `WebSocket剑三广播完成` 日志。区服监听记录清单刷新、首次基线和状态变化入库日志；需要逐轮结果时，将 `com.hidewnd.winds.jx3.service.impl.ServerMonitorServiceImpl` 日志级别设为 DEBUG。区服清单能下载不代表游戏网关的 TCP 状态正常。
 

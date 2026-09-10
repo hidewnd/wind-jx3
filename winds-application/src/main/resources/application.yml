@@ -43,3 +43,9 @@ winds:
     maintenance-interval: 30s
     server-interval: 10s
     patch-interval: 30s
+    # 第三方开服事件触发即时核验；独立于常规轮询持续保持连接。
+    socket:
+      enabled: true
+      endpoint: wss://socket.nicemoe.cn
+      reconnect-interval: 15s
+      heartbeat-timeout: 45s
