@@ -1706,13 +1706,13 @@ Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=
   "type": "jx3.maintenance.updated",
   "eventId": "8955720d-b459-4708-8ca7-c36fbb0a489a",
   "occurredAt": "2026-09-09 20:01:00",
-  "message": "[20:01:00]剑网3公告发布\n例行维护公告\nhttps://kefu.xoyo.com/example",
+  "message": "[20:01:00]剑网3公告发布\n例行维护公告\nhttps://jx3.xoyo.com/index/index.html#/article-details?kid=10002",
   "data": {
     "articleId": "10002",
     "changeType": "created",
     "title": "例行维护公告",
     "summary": null,
-    "url": "https://kefu.xoyo.com/example",
+    "url": "https://jx3.xoyo.com/index/index.html#/article-details?kid=10002",
     "publishedAt": "2026-09-09 20:00:00",
     "updatedAt": null,
     "maintenanceStatus": "scheduled",
@@ -1767,7 +1767,9 @@ Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=
 }
 ```
 
-**说明：** TCP 可达不保证玩家一定能进入游戏；超时不会直接作为关服消息。不可达文案为“[HH:mm:ss]服务器名暂时无法连接，可能维护中。”。
+**说明：** TCP 可达不保证玩家一定能进入游戏；超时不会直接作为关服消息。不可达文案为“[HH:mm:ss]服务器名暂时无法连接，可能维护中。”。开服事件需要先确认不可达，再连续两次探测可达；如果维护期间只有超时，或网关仍接受连接，当前 TCP 信号无法识别此次停开服。
+
+排查漏报时，以 `jx3_records` 中 `key=server:<zoneId>:<serverName>` 的修订和 `event` 判断是否产生事件，再按事件编号核对 `WebSocket剑三广播完成` 日志。区服监听记录清单刷新、首次基线和状态变化入库日志；需要逐轮结果时，将 `com.hidewnd.winds.jx3.service.impl.ServerMonitorServiceImpl` 日志级别设为 DEBUG。区服清单能下载不代表游戏网关的 TCP 状态正常。
 
 ### 5.10 剑三更新包（jx3.patch.updated）
 

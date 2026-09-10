@@ -17,6 +17,10 @@ import java.util.regex.Pattern;
 /** 官网正文在输入边界转成完整纯文本，发布时间必须来自官方数据。 */
 public final class ArticleParser {
     private static final ZoneId BEIJING = ZoneId.of("Asia/Shanghai");
+    private static final String ARTICLE_PAGE =
+            "https://jx3.xoyo.com/index/index.html#/article-details?";
+    private static final Pattern LEGACY_ARTICLE =
+            Pattern.compile("https://jx3\\.xoyo\\.com/show-(\\d+)-(\\d+)-\\d+\\.html");
     private static final Pattern START =
             Pattern.compile(
                     "(?:(\\d{4})年)?(\\d{1,2})月(\\d{1,2})日(?:[（(][^）)]*[）)])?\\s*(\\d{1,2})[:：](\\d{2})");
@@ -64,12 +68,18 @@ public final class ArticleParser {
         if (description == null) {
             description = summarize(body);
         }
-        String url =
-                category.equals("0")
-                        ? "https://kefu.xoyo.com/?game_name=jx3&id=" + id + "&r=gonggao"
-                        : node.path("url").asText();
-        if (url.isBlank()) {
-            url = "https://jx3.xoyo.com/show-" + category + "-" + id + "-1.html";
+        String url;
+        // 与官网 latest 的点击路由一致：客服公告用 kid，新闻用栏目和文章 ID，链接活动保留目标。
+        if (category.equals("0")) {
+            url = ARTICLE_PAGE + "kid=" + id;
+        } else if (node.path("islink").asText().equals("1")) {
+            url = node.path("url").asText();
+            var target = LEGACY_ARTICLE.matcher(url);
+            if (target.matches()) {
+                url = ARTICLE_PAGE + "catid=" + target.group(1) + "&id=" + target.group(2);
+            }
+        } else {
+            url = ARTICLE_PAGE + "catid=" + category + "&id=" + id;
         }
         String status = "unknown";
         String starts = null;

@@ -97,7 +97,12 @@ public class ServerMonitorServiceImpl implements ServerMonitorService {
         ServerStateTracker tracker =
                 trackers.computeIfAbsent(
                         server.endpoint(), ignored -> new ServerStateTracker());
+        String previousStatus = tracker.getConfirmedStatus();
         ServerTransition transition = tracker.observe(result.status(), observedAt);
+        // 明确结果也要可追踪，否则线上只剩无关网关的超时日志，无法区分漏检测和漏投递。
+        log.debug("区服探测完成，大区={}，服务器={}，地址={}，结果={}，已确认状态={}，耗时={}ms",
+                server.zoneName(), server.serverName(), server.endpoint(), result.status(),
+                previousStatus, result.elapsedMillis());
         if (result.status() == ProbeStatus.UNKNOWN) {
             log.warn(
                     "区服探测结果未知，大区={}，服务器={}，地址={}，耗时={}ms，异常类型={}，原因={}；不据此判断维护",
@@ -128,10 +133,20 @@ public class ServerMonitorServiceImpl implements ServerMonitorService {
         boolean inserted =
                 repository.save(
                         "server:" + server.zoneId() + ":" + server.serverName(), state, event);
+        if (previousStatus == null) {
+            log.info("区服基线已建立，大区={}，服务器={}，地址={}，状态={}；首次确认不推送",
+                    server.zoneName(), server.serverName(), server.endpoint(), status);
+        }
         if (transition != null) {
             tracker.confirm(status);
             if (inserted) {
+                log.info("区服状态变化已保存，大区={}，服务器={}，地址={}，状态={}->{}，事件={}",
+                        server.zoneName(), server.serverName(), server.endpoint(),
+                        previousStatus, status, event.eventId());
                 publisher.publishEvent(event);
+            } else {
+                log.info("区服状态变化记录已存在，服务器={}，状态={}->{}；不重复推送",
+                        server.serverName(), previousStatus, status);
             }
         }
     }
@@ -153,6 +168,7 @@ public class ServerMonitorServiceImpl implements ServerMonitorService {
         trackers.keySet().retainAll(updated.stream().map(GameServer::endpoint).toList());
         servers = updated;
         nextRefreshAt = now.plusSeconds(3600);
+        log.info("官方区服清单已刷新，网关数={}，下次刷新={}", servers.size(), nextRefreshAt);
     }
 
     private record ProbeObservation(GameServer server, ServerProbeResult result, Instant observedAt) {}
