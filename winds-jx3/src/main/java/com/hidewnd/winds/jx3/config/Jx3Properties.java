@@ -8,9 +8,9 @@ import java.time.Duration;
 /** 统一应用下的剑三采集配置，运行环境不影响输入协议编码。 */
 @ConfigurationProperties("winds.jx3")
 public record Jx3Properties(
-        @DefaultValue("120s") Duration newsInterval,
-        @DefaultValue("120s") Duration maintenanceInterval,
-        @DefaultValue("30s") Duration serverInterval,
+        @DefaultValue("30s") Duration newsInterval,
+        @DefaultValue("30s") Duration maintenanceInterval,
+        @DefaultValue("10s") Duration serverInterval,
         @DefaultValue("30s") Duration patchInterval,
         @DefaultValue("3s") Duration serverConnectTimeout) {
 

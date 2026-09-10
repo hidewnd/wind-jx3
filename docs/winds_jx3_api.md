@@ -6,8 +6,8 @@
 
 | 项目 | 说明 |
 | --- | --- |
-| HTTP 基础地址 | `http://<host>:9002`；部署 TLS 后使用 HTTPS |
-| WebSocket 地址 | `ws://<host>:9002/ws`；部署 TLS 后使用 WSS |
+| HTTP 基础地址 | `http://costing.hidewnd.cn`；部署 TLS 后使用 HTTPS |
+| WebSocket 地址 | `ws://costing.hidewnd.cn/ws`；部署 TLS 后使用 WSS |
 | 文档页面 | `/doc.html`、`/swagger-ui.html` |
 | OpenAPI JSON | `/v3/api-docs` |
 | 字符编码 | UTF-8 |
@@ -1404,6 +1404,8 @@ Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=
 
 推送只覆盖当前服务实例在线连接，不提供离线补发、逐客户端确认或跨实例转发。微博首次监听只建立基线，服务重启不补发历史推文，同一推文 ID 不重复推送；剑三首次采集只建立基线，不补发停机期间变化。
 
+剑三新闻和公告默认每轮完成后间隔 30 秒，区服探测间隔 10 秒，补丁间隔 30 秒；实际周期还包含本轮执行耗时。采集任务统一交给应用异步执行器，调度器只触发任务；同一来源不会重叠执行。区服按网关探测完成顺序处理，仍需连续两次明确结果确认变化。
+
 ### 5.3 连接成功（connection.success）
 
 #### 消息参数
@@ -1673,9 +1675,9 @@ Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=
 }
 ```
 
-**说明：** WS 发送摘要，不包含完整新闻正文 content。
+**说明：** 官网 `catid=2458` 的新闻和 `catid=2461` 的活动均使用此类型，按官方文章 ID 去重。活动链接记录保留官方摘要和原文 URL，不要求正文非空。WS 发送摘要，不包含完整新闻正文 content。
 
-### 5.8 剑三维护公告（jx3.maintenance.updated）
+### 5.8 剑三官方公告（jx3.maintenance.updated）
 
 #### 消息参数
 
@@ -1704,7 +1706,7 @@ Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=
   "type": "jx3.maintenance.updated",
   "eventId": "8955720d-b459-4708-8ca7-c36fbb0a489a",
   "occurredAt": "2026-09-09 20:01:00",
-  "message": "[20:01:00]剑网3维护公告发布\n例行维护公告\nhttps://kefu.xoyo.com/example",
+  "message": "[20:01:00]剑网3公告发布\n例行维护公告\nhttps://kefu.xoyo.com/example",
   "data": {
     "articleId": "10002",
     "changeType": "created",
@@ -1720,7 +1722,7 @@ Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=
 }
 ```
 
-**说明：** 此消息没有 categoryId。不会根据预计结束时间自动宣布开服。
+**说明：** 此类型覆盖官网 `catid=0` 的所有公告，包括版本更新、维护、处罚等；保留原事件类型和字段以兼容客户端，不再按标题关键词筛选公告。此消息没有 categoryId；普通公告的 maintenanceStatus 为 unknown，startsAt 和 expectedEndsAt 为 null。只有明确的正式服维护通知解析维护状态和时间，不会根据预计结束时间自动宣布开服。
 
 ### 5.9 剑三区服状态变化（jx3.server.changed）
 

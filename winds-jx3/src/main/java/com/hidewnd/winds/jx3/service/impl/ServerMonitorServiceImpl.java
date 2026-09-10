@@ -25,10 +25,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.ExecutorCompletionService;
+import java.util.concurrent.Executor;
 import java.util.concurrent.Future;
 
 /** 编排清单刷新、网关探测、状态确认与持久化后的事件发布。 */
@@ -40,10 +39,10 @@ public class ServerMonitorServiceImpl implements ServerMonitorService {
     private final ObjectMapper mapper;
     private final Clock clock;
     private final TcpServerProbe probe;
-    private final ExecutorService executor = Executors.newFixedThreadPool(4);
+    private final Executor executor;
     private final Map<String, ServerStateTracker> trackers = new HashMap<>();
     private List<GameServer> servers = List.of();
-    private Instant refreshedAt;
+    private Instant nextRefreshAt;
 
     public ServerMonitorServiceImpl(
             OfficialClient client,
@@ -51,64 +50,88 @@ public class ServerMonitorServiceImpl implements ServerMonitorService {
             ApplicationEventPublisher publisher,
             ObjectMapper mapper,
             Clock clock,
-            TcpServerProbe probe) {
+            TcpServerProbe probe,
+            Executor executor) {
         this.client = client;
         this.repository = repository;
         this.publisher = publisher;
         this.mapper = mapper;
         this.clock = clock;
         this.probe = probe;
+        this.executor = executor;
     }
 
     @Override
     public void poll() {
         Instant now = clock.instant();
-        if (refreshedAt == null || !now.isBefore(refreshedAt.plusSeconds(3600))) {
+        if (nextRefreshAt == null || !now.isBefore(nextRefreshAt)) {
             refreshServers(now);
         }
-        List<ServerProbeResult> results = probeServers(now);
-        for (int index = 0; index < servers.size(); index++) {
-            GameServer server = servers.get(index);
-            ServerProbeResult result = results.get(index);
-            ServerStateTracker tracker =
-                    trackers.computeIfAbsent(
-                            server.endpoint(), ignored -> new ServerStateTracker());
-            ServerTransition transition = tracker.observe(result.status(), now);
-            if (result.status() == ProbeStatus.UNKNOWN) {
-                log.warn(
-                        "区服探测结果未知，大区={}，服务器={}，地址={}，耗时={}ms，异常类型={}，原因={}；不据此判断维护",
-                        server.zoneName(),
-                        server.serverName(),
-                        server.endpoint(),
-                        result.elapsedMillis(),
-                        result.failureType(),
-                        result.detail());
-                continue;
+        // 每个网关独立进行有超时的 TCP 探测，按完成顺序处理，避免慢网关阻塞快网关推送。
+        var completed = new ExecutorCompletionService<ProbeObservation>(executor);
+        List<Future<ProbeObservation>> pending = new ArrayList<>();
+        try {
+            for (GameServer server : servers) {
+                pending.add(completed.submit(() -> {
+                    ServerProbeResult result = probe.check(server);
+                    return new ProbeObservation(server, result, clock.instant());
+                }));
             }
-            if (tracker.getConfirmedStatus() == null) {
-                continue;
+            for (int index = 0; index < servers.size(); index++) {
+                ProbeObservation observation = completed.take().get();
+                acceptProbe(observation.server(), observation.result(), observation.observedAt());
             }
-            String status = transition == null ? tracker.getConfirmedStatus() : transition.status();
-            var state = mapper.createObjectNode().put("status", status);
-            state.set("server", mapper.valueToTree(server));
-            Jx3Event event =
-                    transition == null
-                            ? null
-                            : Jx3EventFactory.createServerEvent(
-                                    UUID.randomUUID().toString(),
-                                    transition.observed(),
-                                    clock.instant(),
-                                    server,
-                                    tracker.getConfirmedStatus(),
-                                    status);
-            boolean inserted =
-                    repository.save(
-                            "server:" + server.zoneId() + ":" + server.serverName(), state, event);
-            if (transition != null) {
-                tracker.confirm(status);
-                if (inserted) {
-                    publisher.publishEvent(event);
-                }
+        } catch (InterruptedException exception) {
+            trackers.values().forEach(tracker -> tracker.observe(ProbeStatus.UNKNOWN, clock.instant()));
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("区服探测被中断", exception);
+        } catch (ExecutionException exception) {
+            trackers.values().forEach(tracker -> tracker.observe(ProbeStatus.UNKNOWN, clock.instant()));
+            throw new IllegalStateException("区服探测异常", exception.getCause());
+        } finally {
+            pending.forEach(future -> future.cancel(true));
+        }
+    }
+
+    private void acceptProbe(GameServer server, ServerProbeResult result, Instant observedAt) {
+        ServerStateTracker tracker =
+                trackers.computeIfAbsent(
+                        server.endpoint(), ignored -> new ServerStateTracker());
+        ServerTransition transition = tracker.observe(result.status(), observedAt);
+        if (result.status() == ProbeStatus.UNKNOWN) {
+            log.warn(
+                    "区服探测结果未知，大区={}，服务器={}，地址={}，耗时={}ms，异常类型={}，原因={}；不据此判断维护",
+                    server.zoneName(),
+                    server.serverName(),
+                    server.endpoint(),
+                    result.elapsedMillis(),
+                    result.failureType(),
+                    result.detail());
+            return;
+        }
+        if (tracker.getConfirmedStatus() == null) {
+            return;
+        }
+        String status = transition == null ? tracker.getConfirmedStatus() : transition.status();
+        var state = mapper.createObjectNode().put("status", status);
+        state.set("server", mapper.valueToTree(server));
+        Jx3Event event =
+                transition == null
+                        ? null
+                        : Jx3EventFactory.createServerEvent(
+                                UUID.randomUUID().toString(),
+                                transition.observed(),
+                                clock.instant(),
+                                server,
+                                tracker.getConfirmedStatus(),
+                                status);
+        boolean inserted =
+                repository.save(
+                        "server:" + server.zoneId() + ":" + server.serverName(), state, event);
+        if (transition != null) {
+            tracker.confirm(status);
+            if (inserted) {
+                publisher.publishEvent(event);
             }
         }
     }
@@ -118,37 +141,20 @@ public class ServerMonitorServiceImpl implements ServerMonitorService {
         try {
             updated = ServerListParser.parse(client.fetchServerList());
         } catch (RuntimeException exception) {
-            trackers.values().forEach(tracker -> tracker.observe(ProbeStatus.UNKNOWN, now));
-            throw exception;
+            if (servers.isEmpty()) {
+                throw exception;
+            }
+            // 清单刷新故障不等于网关状态未知；保留有效清单和候选状态，一分钟后重试刷新。
+            nextRefreshAt = now.plusSeconds(60);
+            log.warn("官方区服清单刷新失败，继续探测上次有效清单，数量={}，下次刷新={}",
+                    servers.size(), nextRefreshAt, exception);
+            return;
         }
         trackers.keySet().retainAll(updated.stream().map(GameServer::endpoint).toList());
         servers = updated;
-        refreshedAt = now;
+        nextRefreshAt = now.plusSeconds(3600);
     }
 
-    private List<ServerProbeResult> probeServers(Instant now) {
-        List<Callable<ServerProbeResult>> tasks =
-                servers.stream()
-                        .<Callable<ServerProbeResult>>map(server -> () -> probe.check(server))
-                        .toList();
-        List<ServerProbeResult> results = new ArrayList<>();
-        try {
-            for (Future<ServerProbeResult> future : executor.invokeAll(tasks)) {
-                results.add(future.get());
-            }
-            return results;
-        } catch (InterruptedException exception) {
-            trackers.values().forEach(tracker -> tracker.observe(ProbeStatus.UNKNOWN, now));
-            Thread.currentThread().interrupt();
-            throw new IllegalStateException("区服探测被中断", exception);
-        } catch (ExecutionException exception) {
-            trackers.values().forEach(tracker -> tracker.observe(ProbeStatus.UNKNOWN, now));
-            throw new IllegalStateException("区服探测异常", exception.getCause());
-        }
-    }
+    private record ProbeObservation(GameServer server, ServerProbeResult result, Instant observedAt) {}
 
-    @Override
-    public void close() {
-        executor.shutdownNow();
-    }
 }

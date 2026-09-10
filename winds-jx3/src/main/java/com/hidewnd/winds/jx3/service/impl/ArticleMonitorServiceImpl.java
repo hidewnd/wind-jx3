@@ -15,7 +15,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.UUID;
 
-/** 新闻和维护分别拥有首轮基线，任一来源异常不影响另一个来源。 */
+/** 新闻（含活动）和官方公告分别拥有首轮基线，任一来源异常不影响另一个来源。 */
 public class ArticleMonitorServiceImpl implements ArticleMonitorService {
     private final boolean maintenance;
     private final OfficialClient client;

@@ -10,83 +10,119 @@ import jakarta.annotation.PreDestroy;
 
 import lombok.extern.slf4j.Slf4j;
 
+import org.springframework.core.task.AsyncTaskExecutor;
+import org.springframework.scheduling.TaskScheduler;
+
 import java.time.Duration;
 import java.time.Instant;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
+import java.util.List;
+import java.util.concurrent.FutureTask;
+import java.util.concurrent.ScheduledFuture;
 
-/** 专用四线程调度，不占用微博的默认 Spring 调度器；每个来源独立退避。 */
+/** 共用应用调度器和异步执行器；每个来源独立串行轮询、退避和取消。 */
 @Slf4j
 public class Jx3PollingScheduler {
-    private final ScheduledExecutorService executor = Executors.newScheduledThreadPool(4);
-    private final Map<String, Failure> failures = new ConcurrentHashMap<>();
-    private final Map<String, Instant> lastSuccess = new ConcurrentHashMap<>();
-    private final ArticleMonitorService news;
-    private final ArticleMonitorService maintenance;
-    private final PatchMonitorService patches;
-    private final ServerMonitorService servers;
-    private final Jx3Properties properties;
+    private final AsyncTaskExecutor executor;
+    private final TaskScheduler scheduler;
+    private final List<PollingTask> tasks;
 
     public Jx3PollingScheduler(
             ArticleMonitorService news,
             ArticleMonitorService maintenance,
             PatchMonitorService patches,
             ServerMonitorService servers,
-            Jx3Properties properties) {
-        this.news = news;
-        this.maintenance = maintenance;
-        this.patches = patches;
-        this.servers = servers;
-        this.properties = properties;
+            Jx3Properties properties,
+            AsyncTaskExecutor executor,
+            TaskScheduler scheduler) {
+        this.executor = executor;
+        this.scheduler = scheduler;
+        this.tasks = List.of(
+                new PollingTask("news", news::poll, properties.newsInterval()),
+                new PollingTask("maintenance", maintenance::poll, properties.maintenanceInterval()),
+                new PollingTask("server", servers::poll, properties.serverInterval()),
+                new PollingTask("patch", patches::poll, properties.patchInterval()));
     }
 
     @PostConstruct
     public void start() {
-        schedule("news", news::poll, properties.newsInterval());
-        schedule("maintenance", maintenance::poll, properties.maintenanceInterval());
-        schedule("server", servers::poll, properties.serverInterval());
-        schedule("patch", patches::poll, properties.patchInterval());
-    }
-
-    private void schedule(String name, Runnable task, Duration interval) {
-        executor.scheduleWithFixedDelay(
-                () -> {
-                    Failure failure = failures.get(name);
-                    if (failure != null && Instant.now().isBefore(failure.nextAttempt())) {
-                        return;
-                    }
-                    try {
-                        task.run();
-                        lastSuccess.put(name, Instant.now());
-                        if (failures.remove(name) != null) {
-                            log.info("剑三采集恢复，来源={}", name);
-                        }
-                    } catch (RuntimeException exception) {
-                        int count = failure == null ? 1 : Math.min(6, failure.count() + 1);
-                        long delayMillis =
-                                Math.min(600_000, interval.toMillis() * (1L << (count - 1)));
-                        failures.put(
-                                name, new Failure(count, Instant.now().plusMillis(delayMillis)));
-                        log.warn(
-                                "剑三采集失败，来源={}，最近成功={}，原因={}",
-                                name,
-                                lastSuccess.get(name),
-                                exception.getMessage(),
-                                exception);
-                    }
-                },
-                10_000,
-                interval.toMillis(),
-                TimeUnit.MILLISECONDS);
+        tasks.forEach(task -> task.schedule(Duration.ofSeconds(10)));
     }
 
     @PreDestroy
     public void close() {
-        executor.shutdownNow();
+        // 只取消本模块持有的任务；共享线程资源由应用配置管理。
+        tasks.forEach(PollingTask::cancel);
     }
 
-    private record Failure(int count, Instant nextAttempt) {}
+    /** 单一来源的轮询状态归任务自身所有；同步只保护提交、重排和取消，不覆盖网络 I/O。 */
+    private final class PollingTask implements Runnable {
+        private final String name;
+        private final Runnable action;
+        private final Duration interval;
+        private Instant lastSuccess;
+        private int failures;
+        private ScheduledFuture<?> scheduled;
+        private FutureTask<Void> running;
+        private boolean stopped;
+
+        private PollingTask(String name, Runnable action, Duration interval) {
+            this.name = name;
+            this.action = action;
+            this.interval = interval;
+        }
+
+        private synchronized void schedule(Duration delay) {
+            if (!stopped) {
+                scheduled = scheduler.schedule(this, Instant.now().plus(delay));
+            }
+        }
+
+        @Override
+        public synchronized void run() {
+            if (stopped) {
+                return;
+            }
+            running = new FutureTask<>(() -> {
+                Duration delay = interval;
+                try {
+                    action.run();
+                    lastSuccess = Instant.now();
+                    if (failures != 0) {
+                        log.info("剑三采集恢复，来源={}", name);
+                    }
+                    failures = 0;
+                } catch (RuntimeException exception) {
+                    delay = retryAfter(exception);
+                } finally {
+                    // 异步任务实际完成后才计算下一轮，避免定时触发堆积或同一来源重叠执行。
+                    schedule(delay);
+                }
+                return null;
+            });
+            try {
+                executor.execute(running);
+            } catch (RuntimeException exception) {
+                running.cancel(false);
+                schedule(retryAfter(exception));
+            }
+        }
+
+        private Duration retryAfter(RuntimeException exception) {
+            failures = Math.min(6, failures + 1);
+            long delayMillis = Math.min(600_000, interval.toMillis() * (1L << (failures - 1)));
+            log.warn("剑三采集失败，来源={}，最近成功={}，原因={}",
+                    name, lastSuccess, exception.getMessage(), exception);
+            return Duration.ofMillis(delayMillis);
+        }
+
+        private synchronized void cancel() {
+            stopped = true;
+            if (scheduled != null) {
+                scheduled.cancel(false);
+            }
+            if (running != null) {
+                running.cancel(true);
+            }
+        }
+    }
 }
