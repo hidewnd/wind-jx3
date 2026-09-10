@@ -39,7 +39,7 @@ springdoc:
 winds:
   jx3:
     enabled: true
-    news-interval: 120s
-    maintenance-interval: 120s
-    server-interval: 30s
+    news-interval: 30s
+    maintenance-interval: 30s
+    server-interval: 10s
     patch-interval: 30s

@@ -13,7 +13,7 @@ Winds JX3 是一个面向《剑网 3》相关业务的模块化后端服务，�
 - **黄历管理**：上传黄历图片至阿里云 OSS，按日期保存 MongoDB 记录并发布更新事件。
 - **微博监控**：管理监控博主与抓取账号，定时拉取最新动态，通过 MongoDB 锁支持多实例调度。
 - **实时推送**：通过统一的 `/ws` 端点推送连接、黄历更新和微博更新事件。
-- **剑三官方监听**：直接采集正式服新闻、维护公告、区服网关状态和补丁清单，保存记录并通过 `/ws` 在线广播。
+- **剑三官方监听**：直接采集官网新闻、活动、公告，以及正式服区服网关状态和补丁清单，保存记录并通过 `/ws` 在线广播。
 - **接口文档**：集成 Knife4j、Swagger UI 与 OpenAPI JSON。
 
 ## 技术栈
@@ -124,7 +124,7 @@ java -jar winds-application/target/winds-application.jar
 | 微博监控管理 | `/scout/weibo/**` |
 | WebSocket 推送 | `/ws` |
 
-完整的 HTTP、WebSocket 接口、权限、字段与消息示例统一见 [接口参考文档](docs/api-reference.md)。
+完整的 HTTP、WebSocket 接口、权限、字段与消息示例统一见 [接口参考文档](docs/winds_jx3_api.md)。
 
 ## WebSocket
 
@@ -146,7 +146,7 @@ ws://localhost:9002/ws?token=<WS_TOKEN>
 
 微博和剑三事件的日期时间统一为北京时间 `yyyy-MM-dd HH:mm:ss`。
 
-事件字段与完整 JSON 示例见 [接口参考文档](docs/api-reference.md#5-websocket)。
+事件字段与完整 JSON 示例见 [接口参考文档](docs/winds_jx3_api.md#5-websocket)。
 
 ## 测试
 

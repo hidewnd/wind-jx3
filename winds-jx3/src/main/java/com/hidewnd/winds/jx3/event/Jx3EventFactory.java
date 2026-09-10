@@ -38,7 +38,7 @@ public final class Jx3EventFactory {
     public static Jx3Event createArticleEvent(
             String id, Instant observed, Article article, boolean created) {
         String change = created ? "created" : "updated";
-        String label = article.maintenance() ? "剑网3维护公告" : "剑网3新闻";
+        String label = article.maintenance() ? "剑网3公告" : "剑网3新闻";
         String message =
                 "["
                         + CLOCK.format(observed)

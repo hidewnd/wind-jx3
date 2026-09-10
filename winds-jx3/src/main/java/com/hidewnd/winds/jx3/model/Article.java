@@ -2,7 +2,7 @@ package com.hidewnd.winds.jx3.model;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 
-/** 已解析的官方文章；完整正文与实际发布时间用于持久化。 */
+/** 已解析的官方文章；maintenance 标识官方公告栏目，沿用既有持久化与事件字段。 */
 @JsonInclude(JsonInclude.Include.ALWAYS)
 public record Article(
         String articleId,

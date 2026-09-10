@@ -19,6 +19,8 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.core.task.AsyncTaskExecutor;
+import org.springframework.scheduling.TaskScheduler;
 
 import java.time.Clock;
 
@@ -78,9 +80,10 @@ public class Jx3Configuration {
             Jx3RecordRepository repository,
             ApplicationEventPublisher publisher,
             ObjectMapper mapper,
-            TcpServerProbe probe) {
+            TcpServerProbe probe,
+            @Qualifier("asyncTaskExecutor") AsyncTaskExecutor executor) {
         return new ServerMonitorServiceImpl(
-                client, repository, publisher, mapper, Clock.systemUTC(), probe);
+                client, repository, publisher, mapper, Clock.systemUTC(), probe, executor);
     }
 
     @Bean
@@ -89,7 +92,9 @@ public class Jx3Configuration {
             @Qualifier("jx3MaintenanceMonitor") ArticleMonitorService maintenance,
             PatchMonitorService patches,
             ServerMonitorService servers,
-            Jx3Properties properties) {
-        return new Jx3PollingScheduler(news, maintenance, patches, servers, properties);
+            Jx3Properties properties,
+            @Qualifier("asyncTaskExecutor") AsyncTaskExecutor executor,
+            @Qualifier("taskScheduler") TaskScheduler scheduler) {
+        return new Jx3PollingScheduler(news, maintenance, patches, servers, properties, executor, scheduler);
     }
 }

@@ -74,7 +74,10 @@ public final class ArticleParser {
         String status = "unknown";
         String starts = null;
         String ends = null;
-        if (maintenance) {
+        // 公告通道还包含版本更新、处罚等文章；只为正式服维护通知提取维护状态和时间。
+        if (maintenance
+                && title.matches(".*(?:维护|开服|停服).*")
+                && !title.matches(".*(?:测试服|体验服|缘起|国际服|热线|客服系统).*")) {
             String text = title + " " + body;
             if (text.contains("取消")) {
                 status = "cancelled";

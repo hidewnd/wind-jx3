@@ -112,18 +112,31 @@ public class OfficialClient implements AutoCloseable {
     public List<Article> fetchArticles(boolean maintenance, Instant since) {
         List<Article> articles = new ArrayList<>();
         Set<String> seen = new HashSet<>();
+        // 对应官网最新消息的三个栏目：0 为公告，2458 为新闻，2461 为活动。
+        // 保留 maintenance 参数作为现有公告通道标识，分类不再依赖标题关键词。
+        List<String> sources = maintenance
+                ? List.of("action=get_customer_article_list&game=jx3&order=auto")
+                : List.of(
+                        "action=get_article_list&catid=2458&order_by=inputtime&sort_by=desc",
+                        "action=get_article_list&catid=2461&order_by=inputtime&sort_by=desc");
+        for (String source : sources) {
+            // 各栏目更新速度不同，必须独立分页，避免活动被新闻的时间边界挡住。
+            fetchArticleList(source, maintenance, since, articles, seen);
+        }
+        return articles;
+    }
+
+    private void fetchArticleList(
+            String query, boolean maintenance, Instant since, List<Article> articles, Set<String> seen) {
+        Set<String> pageSeen = new HashSet<>();
         for (int page = 1; page <= 100; page++) {
-            String query =
-                    maintenance
-                            ? "action=get_customer_article_list&game=jx3&order=auto"
-                            : "action=get_article_list&catid=2458&order_by=inputtime&sort_by=desc";
             JsonNode data = json(URI.create(API + query + "&num=30&page=" + page));
             JsonNode list = data.path("list");
             if (!list.isArray() && !list.isObject()) {
                 throw new IllegalStateException("文章列表格式变化");
             }
             if (list.isEmpty()) {
-                return articles;
+                return;
             }
             boolean reachedBoundary = false;
             int newItems = 0;
@@ -132,7 +145,7 @@ public class OfficialClient implements AutoCloseable {
                 if (!id.matches("\\d+")) {
                     throw new IllegalStateException("文章 ID 无效");
                 }
-                if (!seen.add(id)) {
+                if (!pageSeen.add(id)) {
                     continue;
                 }
                 newItems++;
@@ -147,22 +160,20 @@ public class OfficialClient implements AutoCloseable {
                 if (old && !item.path("top").asText("0").equals("1")) {
                     reachedBoundary = true;
                 }
-                String title = ArticleParser.toPlainText(item.path("title").asText());
-                boolean isMaintenance =
-                        title.matches(".*(?:维护|开服|停服).*")
-                                && !title.matches(".*(?:测试服|体验服|缘起|国际服|热线|客服系统).*");
-                if (maintenance && (!isMaintenance || old)) {
-                    continue;
+                String category = item.path("catid").asText();
+                if (!category.matches("\\d+")) {
+                    throw new IllegalStateException("文章栏目 ID 无效");
                 }
-                if (!maintenance && isMaintenance) {
+                boolean customer = category.equals("0");
+                if (maintenance != customer || (maintenance && old) || !seen.add(id)) {
                     continue;
                 }
                 String detailQuery =
-                        maintenance
+                        customer
                                 ? "action=get_customer_article_detail&game=jx3&kid=" + id
-                                : "action=get_article_detail&catid=2458&id=" + id;
+                                : "action=get_article_detail&catid=" + category + "&id=" + id;
                 JsonNode detail = json(URI.create(API + detailQuery));
-                if (!maintenance) {
+                if (!customer) {
                     detail = detail.isArray() && !detail.isEmpty() ? detail.get(0) : null;
                 }
                 if (detail == null || !detail.isObject() || !detail.hasNonNull("content")) {
@@ -181,7 +192,7 @@ public class OfficialClient implements AutoCloseable {
                         ArticleParser.parse(merged, detail.get("content").asText(), maintenance));
             }
             if (since == null || reachedBoundary || list.size() < 30) {
-                return articles;
+                return;
             }
             if (newItems == 0) {
                 throw new IllegalStateException("官网分页重复，停止本轮采集");

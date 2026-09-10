@@ -2,7 +2,7 @@ package com.hidewnd.winds.jx3.event;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 
-/** Maintenance 事件的固定业务载荷。 */
+/** 官方公告载荷；沿用 Maintenance 事件契约，普通公告的维护状态为 unknown、时间为 null。 */
 @JsonInclude(JsonInclude.Include.ALWAYS)
 public record MaintenanceEventData(
         String articleId,
